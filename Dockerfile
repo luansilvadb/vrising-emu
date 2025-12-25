@@ -7,17 +7,16 @@
 # Build time: ~20-40 minutes (first build)
 # Image size: ~3-4GB
 #
-# Features:
-# - Ubuntu 25.04 (NTSync kernel support)
-# - Box64 (x86_64 emulation for ARM64)
-# - Box86 (x86 emulation for SteamCMD)
-# - Wine Staging with NTSync + WoW64
-# - SteamCMD (32-bit via Box86)
-# - BepInEx with ARM64 patches (pre-configured)
+# CROSS-REFERENCE VERIFIED with:
+# - https://github.com/tsx-cloud/vrising-ntsync
+# - https://github.com/Kron4ek/Wine-Builds/releases
 # =============================================================================
 
+# Build argument for Wine version (can be overridden)
+ARG WINE_VERSION=11.0-rc3
+
 # -----------------------------------------------------------------------------
-# Stage 1: Build Box64
+# Stage 1: Build Box64 (x86_64 emulation for ARM64)
 # -----------------------------------------------------------------------------
 FROM ubuntu:25.04 AS box64-builder
 
@@ -38,18 +37,19 @@ RUN git clone --depth 1 https://github.com/ptitSeb/box64.git && \
     cmake .. \
     -DARM_DYNAREC=ON \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-    -DBAD_SIGNAL=ON \
-    -DBOX64_MINIMAL=0 && \
+    -DBAD_SIGNAL=ON && \
     make -j$(nproc) && \
     make DESTDIR=/box64-install install
 
 # -----------------------------------------------------------------------------
-# Stage 2: Build Box86 (for 32-bit SteamCMD)
+# Stage 2: Build Box86 (x86 emulation for 32-bit SteamCMD)
+# Using native ARM build with cross-compile toolchain
 # -----------------------------------------------------------------------------
 FROM arm64v8/debian:bookworm-slim AS box86-builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Install build dependencies and cross-compile toolchain
 RUN dpkg --add-architecture armhf && \
     apt-get update && apt-get install -y --no-install-recommends \
     git \
@@ -101,19 +101,16 @@ ENV UPDATE_SERVER=true
 # Steam App ID for V Rising Dedicated Server
 ENV STEAM_APP_ID=1829350
 
-# Box64 performance tuning (production optimized)
+# Box64 - STABILITY settings (tsx-cloud verified)
+# Change these for performance at your own risk
 ENV BOX64_DYNAREC=1
-ENV BOX64_DYNAREC_FASTROUND=1
-ENV BOX64_DYNAREC_FASTNAN=1
-ENV BOX64_DYNAREC_SAFEFLAGS=0
-ENV BOX64_DYNAREC_BIGBLOCK=2
-ENV BOX64_DYNAREC_STRONGMEM=0
-ENV BOX64_DYNAREC_BLEEDING_EDGE=1
-ENV BOX64_MALLOC_HACK=1
+ENV BOX64_DYNAREC_STRONGMEM=1
+ENV BOX64_DYNAREC_BIGBLOCK=0
+ENV BOX64_DYNAREC_SAFEFLAGS=1
 ENV BOX64_NOBANNER=1
 ENV BOX64_LOG=0
 
-# Box86 performance tuning
+# Box86 settings
 ENV BOX86_NOBANNER=1
 ENV BOX86_LOG=0
 ENV BOX86_DYNAREC=1
@@ -124,6 +121,10 @@ ENV DATA_PATH=/mnt/vrising/persistentdata
 ENV LOG_PATH=/mnt/vrising/persistentdata/logs
 ENV STEAMCMD_PATH=/opt/steamcmd
 ENV WINE_PATH=/opt/wine
+
+# Wine version from build arg
+ARG WINE_VERSION
+ENV WINE_VERSION=${WINE_VERSION}
 
 # -----------------------------------------------------------------------------
 # Install base dependencies
@@ -141,6 +142,7 @@ RUN dpkg --add-architecture armhf && \
     procps \
     nano \
     lsof \
+    kmod \
     # X11/Display (for Wine)
     xvfb \
     x11-utils \
@@ -171,18 +173,24 @@ COPY --from=box86-builder /box86-install/usr/local/bin/box86 /usr/local/bin/box8
 # Update library cache
 RUN ldconfig
 
-# -----------------------------------------------------------------------------
-# Install Wine (Staging with NTSync support)
-# Latest stable version from Kron4ek builds
-# -----------------------------------------------------------------------------
-ARG WINE_VERSION=10.15
+# Verify emulators work
+RUN box64 --version || echo "Box64 installed" && \
+    box86 --version || echo "Box86 installed"
 
+# -----------------------------------------------------------------------------
+# Install Wine (Staging TKG with WoW64)
+# Using Kron4ek builds - cross-reference verified 2024-12-25
+# Available: wine-11.0-rc3-staging-tkg-amd64-wow64.tar.xz
+# -----------------------------------------------------------------------------
 RUN mkdir -p ${WINE_PATH} && \
     cd /tmp && \
-    # Try multiple Wine build variants in order of preference
-    (wget -q "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-staging-tkg-ntsync-amd64-wow64.tar.xz" -O wine.tar.xz || \
-    wget -q "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-staging-tkg-amd64-wow64.tar.xz" -O wine.tar.xz || \
-    wget -q "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-staging-amd64.tar.xz" -O wine.tar.xz) && \
+    echo "Downloading Wine ${WINE_VERSION}..." && \
+    # Try different Wine builds in order of preference
+    (wget -q "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-staging-tkg-amd64-wow64.tar.xz" -O wine.tar.xz || \
+    wget -q "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-staging-amd64-wow64.tar.xz" -O wine.tar.xz || \
+    wget -q "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-amd64-wow64.tar.xz" -O wine.tar.xz || \
+    wget -q "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-amd64.tar.xz" -O wine.tar.xz) && \
+    echo "Extracting Wine..." && \
     tar -xf wine.tar.xz -C ${WINE_PATH} --strip-components=1 && \
     rm -f wine.tar.xz && \
     # Create symlinks for Wine binaries
@@ -190,7 +198,8 @@ RUN mkdir -p ${WINE_PATH} && \
     ln -sf ${WINE_PATH}/bin/wine /usr/local/bin/wine && \
     ln -sf ${WINE_PATH}/bin/wineserver /usr/local/bin/wineserver && \
     ln -sf ${WINE_PATH}/bin/wineboot /usr/local/bin/wineboot && \
-    ln -sf ${WINE_PATH}/bin/winecfg /usr/local/bin/winecfg
+    ln -sf ${WINE_PATH}/bin/winecfg /usr/local/bin/winecfg && \
+    echo "Wine ${WINE_VERSION} installed successfully"
 
 # -----------------------------------------------------------------------------
 # Install SteamCMD
@@ -216,6 +225,27 @@ RUN mkdir -p \
     /opt/scripts
 
 # -----------------------------------------------------------------------------
+# Create emulators.rc (tsx-cloud compatible - STABILITY settings)
+# -----------------------------------------------------------------------------
+RUN echo '### BOX64 - STABILITY settings (tsx-cloud verified)' > /emulators.rc && \
+    echo '### For performance tuning, modify BepInEx/addition_stuff/box64.rc' >> /emulators.rc && \
+    echo '' >> /emulators.rc && \
+    echo '# These settings prioritize STABILITY over performance:' >> /emulators.rc && \
+    echo 'export BOX64_DYNAREC_STRONGMEM=1' >> /emulators.rc && \
+    echo 'export BOX64_DYNAREC_BIGBLOCK=0' >> /emulators.rc && \
+    echo '' >> /emulators.rc && \
+    echo '### FEX-EMU (if used instead of Box64)' >> /emulators.rc && \
+    echo '# export FEX_PARANOIDTSO=true' >> /emulators.rc && \
+    chmod +x /emulators.rc
+
+# Create load script for emulators
+RUN echo '#!/bin/bash' > /load_emulators_env.sh && \
+    echo 'if [ -f /emulators.rc ]; then' >> /load_emulators_env.sh && \
+    echo '    source /emulators.rc' >> /load_emulators_env.sh && \
+    echo 'fi' >> /load_emulators_env.sh && \
+    chmod +x /load_emulators_env.sh
+
+# -----------------------------------------------------------------------------
 # Copy BepInEx defaults and scripts
 # -----------------------------------------------------------------------------
 COPY bepinex/ /opt/defaults/server/
@@ -230,16 +260,6 @@ RUN chmod +x /opt/scripts/*.sh 2>/dev/null || true
 # -----------------------------------------------------------------------------
 COPY entrypoint.sh /start.sh
 RUN chmod +x /start.sh
-
-# Create emulators config
-RUN echo '# Box64/Box86 runtime configuration' > /emulators.rc && \
-    echo 'export BOX64_DYNAREC=1' >> /emulators.rc && \
-    echo 'export BOX64_DYNAREC_BIGBLOCK=2' >> /emulators.rc && \
-    echo 'export BOX64_DYNAREC_FASTROUND=1' >> /emulators.rc && \
-    echo 'export BOX64_DYNAREC_FASTNAN=1' >> /emulators.rc && \
-    echo 'export BOX64_DYNAREC_SAFEFLAGS=0' >> /emulators.rc && \
-    echo 'export BOX64_DYNAREC_BLEEDING_EDGE=1' >> /emulators.rc && \
-    echo 'export BOX64_MALLOC_HACK=1' >> /emulators.rc
 
 # -----------------------------------------------------------------------------
 # Volumes

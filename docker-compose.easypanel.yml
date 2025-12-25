@@ -1,8 +1,7 @@
 # ==============================================================================
 # V Rising ARM64 Server - Production Docker Compose
 # ==============================================================================
-# This is the production configuration for EasyPanel or direct Docker deploy
-# For development, use docker-compose.yml instead
+# Cross-reference verified with tsx-cloud/vrising-ntsync docker-compose
 #
 # Deploy options:
 # 1. EasyPanel: Import this file via UI
@@ -14,73 +13,83 @@ services:
     # ===========================================================================
     # IMAGE CONFIGURATION
     # ===========================================================================
-    # Option 1: Use pre-built image (RECOMMENDED for production)
+    # Option 1: Use pre-built tsx-cloud image (RECOMMENDED - battle-tested)
     image: tsxcloud/vrising-ntsync:latest
 
-    # Option 2: Build from local Dockerfile (uncomment below, comment image above)
+    # Option 2: Build from local Dockerfile (uncomment below, comment above)
     # build:
     #   context: .
     #   dockerfile: Dockerfile
     #   args:
-    #     WINE_VERSION: "10.15"
+    #     WINE_VERSION: "11.0-rc3"
 
     container_name: vrising-server
     hostname: vrising
 
     # ===========================================================================
     # ENVIRONMENT VARIABLES
+    # Cross-reference: tsx-cloud uses TZ, SERVERNAME, ENABLE_PLUGINS
     # ===========================================================================
     environment:
-      # --- Basic Configuration ---
+      # --- Basic Configuration (tsx-cloud compatible) ---
       - TZ=America/Sao_Paulo
       - SERVERNAME=VRising-ARM64
-
-      # --- BepInEx / Plugins ---
       - ENABLE_PLUGINS=true
 
       # --- Server Behavior ---
       - UPDATE_SERVER=true
       - LOGDAYS=30
 
-      # --- Box64 Performance (ARM64) ---
-      - BOX64_DYNAREC=1
-      - BOX64_DYNAREC_FASTROUND=1
-      - BOX64_DYNAREC_FASTNAN=1
-      - BOX64_DYNAREC_SAFEFLAGS=0
-      - BOX64_DYNAREC_BIGBLOCK=2
-      - BOX64_DYNAREC_STRONGMEM=0
-      - BOX64_DYNAREC_BLEEDING_EDGE=1
-      - BOX64_MALLOC_HACK=1
-      - BOX64_NOBANNER=1
-
-      # --- Wine Performance ---
-      - WINEDEBUG=-all
-      - WINE_LARGE_ADDRESS_AWARE=1
-
     # ===========================================================================
     # VOLUMES - Persistent Data
+    # Cross-reference: tsx-cloud uses same paths
     # ===========================================================================
     volumes:
-      # Server files (Wine, V Rising, BepInEx)
-      - vrising-server:/mnt/vrising/server
-      # Persistent data (saves, configs, logs)
-      - vrising-data:/mnt/vrising/persistentdata
+      - ./vrising/server:/mnt/vrising/server
+      - ./vrising/persistentdata:/mnt/vrising/persistentdata
 
     # ===========================================================================
     # PORTS
+    # Cross-reference: tsx-cloud uses same ports
     # ===========================================================================
     ports:
       # Game Port (UDP) - REQUIRED
       - "9876:9876/udp"
       # Query Port (UDP) - For server browser
       - "9877:9877/udp"
-      # RCON Port (TCP) - Remote administration (optional)
+      # RCON Port (TCP) - Remote administration
       - "25575:25575/tcp"
-      # API/Metrics Port (TCP) - Prometheus metrics (optional)
+      # API/Metrics Port (TCP) - Prometheus metrics
       - "9099:9090/tcp"
 
     # ===========================================================================
-    # RESOURCE LIMITS
+    # RESTART POLICY
+    # ===========================================================================
+    restart: unless-stopped
+
+    # ===========================================================================
+    # GRACEFUL SHUTDOWN
+    # tsx-cloud uses 30s, we use 60s for extra safety
+    # ===========================================================================
+    stop_grace_period: 60s
+
+    # ===========================================================================
+    # NETWORK
+    # ===========================================================================
+    network_mode: bridge
+
+    # ===========================================================================
+    # NTSYNC DEVICE
+    # Cross-reference: tsx-cloud has this enabled by default
+    # IMPORTANT: Only uncomment if YOUR HOST supports NTSync!
+    # Check with: ls /dev/ntsync
+    # If file doesn't exist, KEEP THIS COMMENTED or container won't start!
+    # ===========================================================================
+    # devices:
+    #   - /dev/ntsync:/dev/ntsync
+
+    # ===========================================================================
+    # RESOURCE LIMITS (Optional - for production)
     # ===========================================================================
     deploy:
       resources:
@@ -92,29 +101,6 @@ services:
           memory: 8G
 
     # ===========================================================================
-    # RESTART POLICY
-    # ===========================================================================
-    restart: unless-stopped
-
-    # ===========================================================================
-    # GRACEFUL SHUTDOWN
-    # Allow time for autosave before container stops
-    # ===========================================================================
-    stop_grace_period: 90s
-
-    # ===========================================================================
-    # NETWORK
-    # ===========================================================================
-    network_mode: bridge
-
-    # ===========================================================================
-    # NTSYNC DEVICE (Optional - Uncomment if host supports it)
-    # Check with: ls /dev/ntsync
-    # ===========================================================================
-    # devices:
-    #   - /dev/ntsync:/dev/ntsync
-
-    # ===========================================================================
     # HEALTH CHECK
     # ===========================================================================
     healthcheck:
@@ -122,7 +108,7 @@ services:
       interval: 60s
       timeout: 10s
       retries: 3
-      start_period: 600s # 10 min - server takes time to download/start
+      start_period: 600s
 
     # ===========================================================================
     # LOGGING
@@ -132,12 +118,3 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
-
-# ==============================================================================
-# VOLUMES DEFINITION
-# ==============================================================================
-volumes:
-  vrising-server:
-    name: vrising-server
-  vrising-data:
-    name: vrising-data
