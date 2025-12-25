@@ -48,7 +48,8 @@ vrising-emu/
 │       └── box64.rc                    # Config Box64 para BepInEx
 │
 └── docs/
-    └── DEEP_RESEARCH_EASYPANEL_ARM64.md  # Documentação completa
+    ├── DEEP_RESEARCH_EASYPANEL_ARM64.md  # Documentação técnica
+    └── MODS_GUIDE.md                     # Guia de Mods (KindredLogistics, etc)
 ```
 
 ---
@@ -161,11 +162,27 @@ environment:
    ```
 2. Reinicie o container
 
-### Mods Populares
+### 🏭 Mod Destaque: KindredLogistics
 
-- **KindredLogistics** - Automação de recursos
-- **KindredCommands** - Comandos admin
-- **VampireCommandFramework** - Framework de comandos
+O mod definitivo para automação de castelo. Transforma seu castelo em uma **máquina industrial**:
+
+| Feature | Descrição |
+|---------|-----------|
+| **Quick Stash** | Deposita itens automaticamente em baús (reduz 30% do tempo gasto organizando) |
+| **Craft from Containers** | Estações puxam recursos de baús próximos |
+| **Auto-Salvage** | Dump chest → Devourer automático |
+| **Auto-Refill** | Mist Braziers e Tombs auto-reabastecidos |
+
+> 📖 **Guia Completo**: [docs/MODS_GUIDE.md](docs/MODS_GUIDE.md)
+
+### Outros Mods Populares
+
+| Mod | Descrição |
+|-----|-----------|
+| **KindredLogistics** | Automação completa de recursos |
+| **KindredCommands** | Comandos admin avançados |
+| **VampireCommandFramework** | Framework de comandos |
+| **Bloodstone** | API base para mods |
 
 ---
 
@@ -254,6 +271,7 @@ docker compose exec vrising /opt/scripts/update-server.sh
 ## 📚 Documentação
 
 - [Deep Research - EasyPanel ARM64](docs/DEEP_RESEARCH_EASYPANEL_ARM64.md)
+- [Guia de Mods - KindredLogistics](docs/MODS_GUIDE.md)
 - [BepInEx ARM64 Setup](bepinex/README.md)
 - [tsx-cloud/vrising-ntsync](https://github.com/tsx-cloud/vrising-ntsync)
 - [Box64 Documentation](https://github.com/ptitSeb/box64/blob/main/docs/USAGE.md)
