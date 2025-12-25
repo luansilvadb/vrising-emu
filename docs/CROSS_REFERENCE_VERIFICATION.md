@@ -36,7 +36,7 @@ production-tested configurations.
 | Component | tsx-cloud | Our Project | Match |
 |-----------|-----------|-------------|-------|
 | Base image | Ubuntu 25.04 | Ubuntu 25.04 | ✅ |
-| Box64 build | From source | From source | ✅ |
+| Box64 build | From source | From source (NO_LIB_INSTALL) | ✅ |
 | Box86 build | Pre-built | From source | ⚠️ Alternative |
 | Wine source | Kron4ek | Kron4ek | ✅ |
 | Wine version | 10.x | 11.0-rc3 | ✅ Updated |

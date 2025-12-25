@@ -37,7 +37,9 @@ RUN git clone --depth 1 https://github.com/ptitSeb/box64.git && \
     cmake .. \
     -DARM_DYNAREC=ON \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-    -DBAD_SIGNAL=ON && \
+    -DBAD_SIGNAL=ON \
+    -DNO_LIB_INSTALL=1 \
+    -DNO_CONF_INSTALL=1 && \
     make -j$(nproc) && \
     make DESTDIR=/box64-install install
 
@@ -69,7 +71,9 @@ RUN git clone --depth 1 https://github.com/ptitSeb/box86.git && \
     -DARM_DYNAREC=ON \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DRPI4ARM64=1 \
-    -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc && \
+    -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+    -DNO_LIB_INSTALL=1 \
+    -DNO_CONF_INSTALL=1 && \
     make -j$(nproc) && \
     make DESTDIR=/box86-install install
 
@@ -161,9 +165,10 @@ RUN dpkg --add-architecture armhf && \
 
 # -----------------------------------------------------------------------------
 # Copy Box64 from builder
+# Note: Box64 installs libs to /usr/lib/box64* which doesn't respect DESTDIR
+# We only need the binary for emulation
 # -----------------------------------------------------------------------------
 COPY --from=box64-builder /box64-install/usr/local/bin/box64 /usr/local/bin/box64
-COPY --from=box64-builder /box64-install/usr/local/lib /usr/local/lib
 
 # -----------------------------------------------------------------------------
 # Copy Box86 from builder  
@@ -179,7 +184,7 @@ RUN box64 --version || echo "Box64 installed" && \
 
 # -----------------------------------------------------------------------------
 # Install Wine (Staging TKG with WoW64)
-# Using Kron4ek builds - cross-reference verified 2024-12-25
+# Using Kron4ek builds - cross-reference verified 2025-12-25
 # Available: wine-11.0-rc3-staging-tkg-amd64-wow64.tar.xz
 # -----------------------------------------------------------------------------
 RUN mkdir -p ${WINE_PATH} && \
