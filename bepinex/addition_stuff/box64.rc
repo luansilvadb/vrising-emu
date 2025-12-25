@@ -1,26 +1,59 @@
-# Box64 configuration for V Rising with BepInEx
-# This file is copied to BepInEx/addition_stuff/box64.rc
-# See: https://github.com/ptitSeb/box64/blob/main/docs/USAGE.md
+# =============================================================================
+# Box64 Configuration for V Rising with BepInEx
+# =============================================================================
+# This file is loaded at server startup to configure Box64 dynarec
+# Place in: BepInEx/addition_stuff/box64.rc
+#
+# Documentation: https://github.com/ptitSeb/box64/blob/main/docs/USAGE.md
+# =============================================================================
 
+# -----------------------------------------------------------------------------
+# V Rising Server Specific Configuration
+# -----------------------------------------------------------------------------
 [VRisingServer.exe]
-# Enable Dynarec (dynamic recompilation)
+
+# Enable dynamic recompilation (essential for performance)
 BOX64_DYNAREC=1
 
-# Use larger blocks for better performance
+# Use larger recompilation blocks (better performance, may use more memory)
 BOX64_DYNAREC_BIGBLOCK=2
 
-# Fast floating point operations (may reduce accuracy slightly)
+# Fast floating point rounding (slight accuracy tradeoff for speed)
 BOX64_DYNAREC_FASTROUND=1
+
+# Fast NaN handling
 BOX64_DYNAREC_FASTNAN=1
 
-# Reduce safety checks for performance
+# Reduce safety flag checks (better performance)
 BOX64_DYNAREC_SAFEFLAGS=0
 
-# Strong memory model (may help with threading issues)
+# Disable strong memory ordering (better performance on ARM)
 BOX64_DYNAREC_STRONGMEM=0
 
 # Enable bleeding edge optimizations
 BOX64_DYNAREC_BLEEDING_EDGE=1
 
-# Memory allocation hack for some games
+# Memory allocation optimization
 BOX64_MALLOC_HACK=1
+
+# Suppress Box64 startup banner
+BOX64_NOBANNER=1
+
+# Disable logging for production
+BOX64_LOG=0
+
+# -----------------------------------------------------------------------------
+# BepInEx / Il2CppInterop Configuration
+# These settings help with the patched Il2CppInterop for ARM64
+# -----------------------------------------------------------------------------
+[Il2CppInterop.Generator.exe]
+BOX64_DYNAREC=1
+BOX64_DYNAREC_BIGBLOCK=1
+BOX64_DYNAREC_SAFEFLAGS=2
+BOX64_DYNAREC_STRONGMEM=1
+
+[Cpp2IL.exe]
+BOX64_DYNAREC=1
+BOX64_DYNAREC_BIGBLOCK=1
+BOX64_DYNAREC_SAFEFLAGS=2
+BOX64_DYNAREC_STRONGMEM=1

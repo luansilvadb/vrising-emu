@@ -1,31 +1,46 @@
+# ==============================================================================
 # V Rising ARM64 Server - Development Docker Compose
-# Use this for local development/testing
-# For production EasyPanel: use docker-compose.easypanel.yml
+# ==============================================================================
+# Use this for local development with Dockerfile build
+# For production, use docker-compose.easypanel.yml
+#
+# Usage:
+#   docker compose build        # Build image
+#   docker compose up -d        # Start container
+#   docker compose logs -f      # View logs
+#   docker compose down         # Stop container
+# ==============================================================================
 
 services:
   vrising:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: vrising-arm64-dev
+      args:
+        WINE_VERSION: "10.15"
+
+    container_name: vrising-dev
+    hostname: vrising-dev
 
     environment:
       - TZ=America/Sao_Paulo
-      - SERVERNAME=VRising-ARM64-Dev
+      - SERVERNAME=VRising-Dev
       - ENABLE_PLUGINS=true
       - UPDATE_SERVER=true
-      # Box64 optimizations
+      - LOGDAYS=7
+      # Box64
       - BOX64_DYNAREC=1
       - BOX64_DYNAREC_FASTROUND=1
       - BOX64_DYNAREC_FASTNAN=1
       - BOX64_DYNAREC_SAFEFLAGS=0
       - BOX64_DYNAREC_BIGBLOCK=2
       - BOX64_DYNAREC_BLEEDING_EDGE=1
+      - BOX64_NOBANNER=1
       # Wine
       - WINEDEBUG=-all
-      - WINE_LARGE_ADDRESS_AWARE=1
 
     volumes:
+      # Use local directories for easier debugging
       - ./vrising/server:/mnt/vrising/server
       - ./vrising/persistentdata:/mnt/vrising/persistentdata
 
@@ -38,16 +53,9 @@ services:
     restart: unless-stopped
     stop_grace_period: 60s
 
-    # Uncomment if host has NTSync support
-    # devices:
-    #   - /dev/ntsync:/dev/ntsync
-
-    # Resource limits
+    # Lower limits for dev
     deploy:
       resources:
         limits:
-          cpus: '3.5'
-          memory: 16G
-        reservations:
-          cpus: '2.0'
-          memory: 8G
+          cpus: '3.0'
+          memory: 12G

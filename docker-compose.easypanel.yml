@@ -1,30 +1,48 @@
-# Docker Compose para V Rising ARM64 - Otimizado para EasyPanel
-# Hardware: Oracle Ampere CPU 4x, 24GB RAM
-# 
-# NOTA: No EasyPanel, você pode usar este arquivo como referência
-# para configurar as variáveis de ambiente e volumes via UI.
+# ==============================================================================
+# V Rising ARM64 Server - Production Docker Compose
+# ==============================================================================
+# This is the production configuration for EasyPanel or direct Docker deploy
+# For development, use docker-compose.yml instead
 #
-# Para desenvolvimento local: docker compose -f docker-compose.easypanel.yml up
+# Deploy options:
+# 1. EasyPanel: Import this file via UI
+# 2. Direct: docker compose -f docker-compose.easypanel.yml up -d
+# ==============================================================================
 
 services:
   vrising:
+    # ===========================================================================
+    # IMAGE CONFIGURATION
+    # ===========================================================================
+    # Option 1: Use pre-built image (RECOMMENDED for production)
     image: tsxcloud/vrising-ntsync:latest
-    container_name: vrising-arm64
-    
-    # Variáveis de Ambiente
+
+    # Option 2: Build from local Dockerfile (uncomment below, comment image above)
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   args:
+    #     WINE_VERSION: "10.15"
+
+    container_name: vrising-server
+    hostname: vrising
+
+    # ===========================================================================
+    # ENVIRONMENT VARIABLES
+    # ===========================================================================
     environment:
-      # Configuração Básica
+      # --- Basic Configuration ---
       - TZ=America/Sao_Paulo
-      - SERVERNAME=VRising-ARM64-Server
-      
-      # BepInEx / Plugins
+      - SERVERNAME=VRising-ARM64
+
+      # --- BepInEx / Plugins ---
       - ENABLE_PLUGINS=true
-      
-      # Wine Performance
-      - WINE_LARGE_ADDRESS_AWARE=1
-      - WINEDEBUG=-all
-      
-      # Box64 Dynarec Optimizations (ARM64)
+
+      # --- Server Behavior ---
+      - UPDATE_SERVER=true
+      - LOGDAYS=30
+
+      # --- Box64 Performance (ARM64) ---
       - BOX64_DYNAREC=1
       - BOX64_DYNAREC_FASTROUND=1
       - BOX64_DYNAREC_FASTNAN=1
@@ -32,65 +50,94 @@ services:
       - BOX64_DYNAREC_BIGBLOCK=2
       - BOX64_DYNAREC_STRONGMEM=0
       - BOX64_DYNAREC_BLEEDING_EDGE=1
-      
-      # Memory Optimization
       - BOX64_MALLOC_HACK=1
-    
-    # Volumes Persistentes
+      - BOX64_NOBANNER=1
+
+      # --- Wine Performance ---
+      - WINEDEBUG=-all
+      - WINE_LARGE_ADDRESS_AWARE=1
+
+    # ===========================================================================
+    # VOLUMES - Persistent Data
+    # ===========================================================================
     volumes:
-      # Arquivos do servidor (Wine prefix, V Rising, BepInEx)
-      - ./vrising/server:/mnt/vrising/server
-      # Dados persistentes (saves, configs)
-      - ./vrising/persistentdata:/mnt/vrising/persistentdata
-    
-    # Portas
+      # Server files (Wine, V Rising, BepInEx)
+      - vrising-server:/mnt/vrising/server
+      # Persistent data (saves, configs, logs)
+      - vrising-data:/mnt/vrising/persistentdata
+
+    # ===========================================================================
+    # PORTS
+    # ===========================================================================
     ports:
-      # Game port (UDP) - OBRIGATÓRIO
+      # Game Port (UDP) - REQUIRED
       - "9876:9876/udp"
-      # Query port (UDP) - OBRIGATÓRIO para server browser
+      # Query Port (UDP) - For server browser
       - "9877:9877/udp"
-      # RCON (TCP) - Opcional, para administração remota
+      # RCON Port (TCP) - Remote administration (optional)
       - "25575:25575/tcp"
-      # API Metrics/Prometheus (TCP) - Opcional
+      # API/Metrics Port (TCP) - Prometheus metrics (optional)
       - "9099:9090/tcp"
-    
-    # Limites de Recursos (ajuste conforme hardware)
-    # No EasyPanel, configure via UI → Resources
+
+    # ===========================================================================
+    # RESOURCE LIMITS
+    # ===========================================================================
     deploy:
       resources:
         limits:
-          cpus: '3.5'          # Deixa 0.5 core para o sistema
-          memory: 16G          # V Rising usa 8-12GB típico
+          cpus: '3.5'
+          memory: 18G
         reservations:
           cpus: '2.0'
           memory: 8G
-    
-    # Política de Restart
+
+    # ===========================================================================
+    # RESTART POLICY
+    # ===========================================================================
     restart: unless-stopped
-    
-    # Tempo de espera para autosave antes de parar
-    stop_grace_period: 60s
-    
-    # Network
+
+    # ===========================================================================
+    # GRACEFUL SHUTDOWN
+    # Allow time for autosave before container stops
+    # ===========================================================================
+    stop_grace_period: 90s
+
+    # ===========================================================================
+    # NETWORK
+    # ===========================================================================
     network_mode: bridge
-    
-    # NTSync Device (APENAS se o host suporta)
-    # Verifique com: ls /dev/ntsync
-    # Se não existir, COMENTE as linhas abaixo:
+
+    # ===========================================================================
+    # NTSYNC DEVICE (Optional - Uncomment if host supports it)
+    # Check with: ls /dev/ntsync
+    # ===========================================================================
     # devices:
     #   - /dev/ntsync:/dev/ntsync
-    
-    # Health Check (opcional)
+
+    # ===========================================================================
+    # HEALTH CHECK
+    # ===========================================================================
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f VRisingServer || exit 1"]
+      test: [ "CMD-SHELL", "pgrep -f VRisingServer || exit 1" ]
       interval: 60s
       timeout: 10s
       retries: 3
-      start_period: 300s  # 5 minutos para primeiro boot
-    
-    # Logging
+      start_period: 600s # 10 min - server takes time to download/start
+
+    # ===========================================================================
+    # LOGGING
+    # ===========================================================================
     logging:
       driver: "json-file"
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: "50m"
+        max-file: "5"
+
+# ==============================================================================
+# VOLUMES DEFINITION
+# ==============================================================================
+volumes:
+  vrising-server:
+    name: vrising-server
+  vrising-data:
+    name: vrising-data

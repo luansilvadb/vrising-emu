@@ -1,319 +1,426 @@
 #!/bin/bash
 # =============================================================================
-# V Rising ARM64 Server - Entrypoint Script
+# V Rising ARM64 Server - Production Entrypoint
 # =============================================================================
+# Based on tsx-cloud/vrising-ntsync start.sh with improvements
+# This script handles:
+# - Graceful shutdown with autosave
+# - SteamCMD updates
+# - Wine initialization
+# - BepInEx configuration
+# - Server startup and monitoring
+# =============================================================================
+
 set -e
 
-# Colors for logging
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Paths
+s=/mnt/vrising/server
+p=/mnt/vrising/persistentdata
+l="${p}/logs"
+SETTINGS="${p}/Settings"
 
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
-}
+# Default values
+LOGDAYS="${LOGDAYS:-30}"
+SERVERNAME="${SERVERNAME:-VRising-ARM64}"
+ENABLE_PLUGINS="${ENABLE_PLUGINS:-false}"
+UPDATE_SERVER="${UPDATE_SERVER:-true}"
 
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
-}
-
-# -----------------------------------------------------------------------------
-# Signal handling for graceful shutdown
-# -----------------------------------------------------------------------------
-shutdown_server() {
-    log_warning "Shutdown signal received. Saving and stopping server..."
+# =============================================================================
+# Signal Handler - Graceful Shutdown
+# =============================================================================
+term_handler() {
+    echo ""
+    echo "=============================================="
+    echo "[SHUTDOWN] Signal received. Saving game..."
+    echo "=============================================="
     
-    # Send stop command to Wine/VRising
-    if [ -n "$VRISING_PID" ]; then
-        kill -SIGTERM "$VRISING_PID" 2>/dev/null || true
+    PID=$(pgrep -f "VRisingServer.exe" | sort -nr | head -n 1)
+    
+    if [[ -z $PID ]]; then
+        echo "[SHUTDOWN] Could not find VRisingServer.exe PID. Server may already be stopped."
+    else
+        echo "[SHUTDOWN] Sending SIGINT to PID $PID for graceful shutdown..."
+        kill -n SIGINT "$PID" 2>/dev/null || true
         
-        # Wait for graceful shutdown
+        # Wait for server to finish (max 60 seconds)
         local count=0
-        while kill -0 "$VRISING_PID" 2>/dev/null && [ $count -lt 60 ]; do
-            log_info "Waiting for server to save... ($count/60s)"
+        while kill -0 "$PID" 2>/dev/null && [ $count -lt 60 ]; do
+            echo "[SHUTDOWN] Waiting for save to complete... ($count/60s)"
             sleep 1
-            ((count++))
+            ((count++)) || true
         done
         
-        if kill -0 "$VRISING_PID" 2>/dev/null; then
-            log_warning "Server didn't stop gracefully, forcing..."
-            kill -SIGKILL "$VRISING_PID" 2>/dev/null || true
+        if kill -0 "$PID" 2>/dev/null; then
+            echo "[SHUTDOWN] Server didn't stop gracefully, forcing termination..."
+            kill -9 "$PID" 2>/dev/null || true
         fi
     fi
     
     # Stop wineserver
     wineserver -k 2>/dev/null || true
     
-    log_success "Server stopped."
+    echo "[SHUTDOWN] Server stopped successfully."
     exit 0
 }
 
-trap shutdown_server SIGTERM SIGINT SIGQUIT
+trap 'term_handler' SIGTERM SIGINT SIGQUIT
 
-# -----------------------------------------------------------------------------
-# Environment Setup
-# -----------------------------------------------------------------------------
-log_info "=============================================="
-log_info "V Rising ARM64 Server - Starting"
-log_info "=============================================="
-log_info "Server Name: ${SERVERNAME}"
-log_info "Plugins Enabled: ${ENABLE_PLUGINS}"
-log_info "Timezone: ${TZ}"
-log_info "=============================================="
+# =============================================================================
+# Logging Functions
+# =============================================================================
+log_info() {
+    echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - $1"
+}
 
-# Set timezone
-if [ -n "$TZ" ]; then
-    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
-    echo $TZ > /etc/timezone
-    log_info "Timezone set to: $TZ"
-fi
+log_success() {
+    echo "[OK] $(date '+%Y-%m-%d %H:%M:%S') - $1"
+}
 
-# -----------------------------------------------------------------------------
-# Check Architecture
-# -----------------------------------------------------------------------------
-ARCH=$(uname -m)
-log_info "System Architecture: $ARCH"
+log_warning() {
+    echo "[WARN] $(date '+%Y-%m-%d %H:%M:%S') - $1"
+}
 
-if [ "$ARCH" != "aarch64" ] && [ "$ARCH" != "arm64" ]; then
-    log_warning "This image is optimized for ARM64. Running on $ARCH may have issues."
-fi
+log_error() {
+    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $1"
+}
 
-# Check Box64
-if command -v box64 &> /dev/null; then
-    log_success "Box64 found: $(box64 --version 2>&1 | head -1 || echo 'installed')"
-else
-    log_error "Box64 not found! Cannot run x86_64 binaries."
-    exit 1
-fi
-
-# Check Box86
-if command -v box86 &> /dev/null; then
-    log_success "Box86 found"
-else
-    log_warning "Box86 not found. SteamCMD may have issues."
-fi
-
-# -----------------------------------------------------------------------------
-# Initialize Wine Prefix
-# -----------------------------------------------------------------------------
-log_info "Initializing Wine prefix..."
-
-# Start virtual framebuffer for Wine
-Xvfb :99 -screen 0 1024x768x16 &
-export DISPLAY=:99
-
-# Initialize Wine if needed
-if [ ! -d "$WINEPREFIX" ]; then
-    log_info "Creating new Wine prefix..."
-    wineboot --init 2>/dev/null || true
-    sleep 5
-    wineserver -w 2>/dev/null || true
-    log_success "Wine prefix created"
-else
-    log_info "Wine prefix already exists"
-fi
-
-# -----------------------------------------------------------------------------
-# Update/Install V Rising via SteamCMD
-# -----------------------------------------------------------------------------
-update_server() {
-    log_info "Checking for V Rising server updates..."
-    
-    cd ${STEAMCMD_PATH}
-    
-    # Run SteamCMD with Box86 for 32-bit
-    export BOX86_NOBANNER=1
-    export BOX86_LOG=0
-    
-    ./steamcmd.sh \
-        +@sSteamCmdForcePlatformType windows \
-        +force_install_dir "${SERVER_PATH}" \
-        +login anonymous \
-        +app_update ${STEAM_APP_ID} validate \
-        +quit
-    
-    if [ $? -eq 0 ]; then
-        log_success "V Rising server updated successfully"
-    else
-        log_warning "SteamCMD returned non-zero exit code"
+# =============================================================================
+# Cleanup old logs
+# =============================================================================
+cleanup_logs() {
+    if [ -d "${l}" ]; then
+        log_info "Cleaning up logs older than $LOGDAYS days..."
+        find "${l}" -name "*.log" -type f -mtime +$LOGDAYS -exec rm {} \; 2>/dev/null || true
     fi
 }
 
-# Check if server needs update
-if [ ! -f "${SERVER_PATH}/VRisingServer.exe" ]; then
-    log_info "V Rising server not found. Installing..."
-    update_server
-elif [ "${UPDATE_SERVER:-true}" = "true" ]; then
-    update_server
-fi
-
-# Verify installation
-if [ ! -f "${SERVER_PATH}/VRisingServer.exe" ]; then
-    log_error "VRisingServer.exe not found after installation!"
-    log_error "Check SteamCMD output above for errors."
-    exit 1
-fi
-
-log_success "V Rising server files verified"
-
-# -----------------------------------------------------------------------------
-# Setup Configuration Files
-# -----------------------------------------------------------------------------
-log_info "Setting up configuration files..."
-
-# Create Settings directory if needed
-mkdir -p "${DATA_PATH}/Settings"
-
-# ServerHostSettings.json
-if [ ! -f "${DATA_PATH}/Settings/ServerHostSettings.json" ]; then
-    log_info "Creating ServerHostSettings.json..."
-    cp /opt/config/ServerHostSettings.json "${DATA_PATH}/Settings/" 2>/dev/null || \
-    cat > "${DATA_PATH}/Settings/ServerHostSettings.json" << EOF
-{
-  "Name": "${SERVERNAME}",
-  "Description": "V Rising ARM64 Server",
-  "Port": 9876,
-  "QueryPort": 9877,
-  "MaxConnectedUsers": 10,
-  "MaxConnectedAdmins": 2,
-  "SaveName": "world1",
-  "Password": "",
-  "Secure": true,
-  "ListOnSteam": false,
-  "ListOnEOS": false,
-  "AutoSaveCount": 20,
-  "AutoSaveInterval": 300,
-  "CompressSaveFiles": true,
-  "Rcon": {
-    "Enabled": false,
-    "Port": 25575,
-    "Password": ""
-  }
-}
-EOF
-fi
-
-# ServerGameSettings.json
-if [ ! -f "${DATA_PATH}/Settings/ServerGameSettings.json" ]; then
-    log_info "Creating ServerGameSettings.json..."
-    if [ -f "/opt/config/ServerGameSettings.json" ]; then
-        cp /opt/config/ServerGameSettings.json "${DATA_PATH}/Settings/"
+# =============================================================================
+# Print Version Information
+# =============================================================================
+print_versions() {
+    echo ""
+    echo "=============================================="
+    echo "V Rising ARM64 Server - Version Info"
+    echo "=============================================="
+    echo "Kernel: $(uname -r)"
+    echo "Architecture: $(uname -m)"
+    
+    if command -v box64 &> /dev/null; then
+        echo "Box64: $(box64 --version 2>&1 | head -1 || echo 'installed')"
     fi
-fi
-
-# Update server name in settings
-if [ -f "${DATA_PATH}/Settings/ServerHostSettings.json" ]; then
-    # Use sed to update server name if it differs
-    sed -i "s/\"Name\": \"[^\"]*\"/\"Name\": \"${SERVERNAME}\"/" "${DATA_PATH}/Settings/ServerHostSettings.json"
-fi
-
-log_success "Configuration files ready"
-
-# -----------------------------------------------------------------------------
-# Setup BepInEx (if enabled)
-# -----------------------------------------------------------------------------
-if [ "${ENABLE_PLUGINS}" = "true" ]; then
-    log_info "Setting up BepInEx..."
     
-    BEPINEX_DIR="${SERVER_PATH}/BepInEx"
+    if command -v box86 &> /dev/null; then
+        echo "Box86: installed"
+    fi
     
-    # Check if BepInEx core files exist
-    if [ ! -f "${BEPINEX_DIR}/core/BepInEx.Core.dll" ]; then
-        log_info "Installing BepInEx..."
-        
-        if [ -d "/opt/bepinex" ] && [ "$(ls -A /opt/bepinex 2>/dev/null)" ]; then
-            # Copy pre-packaged BepInEx
-            cp -r /opt/bepinex/* "${SERVER_PATH}/"
-            log_success "BepInEx installed from pre-packaged files"
+    if command -v wine &> /dev/null; then
+        echo "Wine: $(wine --version 2>&1 || echo 'installed')"
+    fi
+    
+    echo "Server Name: $SERVERNAME"
+    echo "Plugins: $ENABLE_PLUGINS"
+    echo "=============================================="
+    echo ""
+}
+
+# =============================================================================
+# Load Emulator Configuration
+# =============================================================================
+load_emulator_config() {
+    if [ -f "/emulators.rc" ]; then
+        log_info "Loading Box64/Box86 configuration..."
+        source /emulators.rc
+    fi
+    
+    # Also load from BepInEx if exists
+    if [ -f "$s/BepInEx/addition_stuff/box64.rc" ]; then
+        log_info "Loading BepInEx Box64 configuration..."
+        # Parse the rc file and export variables
+        while IFS= read -r line; do
+            if [[ $line =~ ^BOX64_ ]] || [[ $line =~ ^export\ BOX64_ ]]; then
+                eval "export $line" 2>/dev/null || true
+            fi
+        done < "$s/BepInEx/addition_stuff/box64.rc"
+    fi
+}
+
+# =============================================================================
+# Check NTSync Support
+# =============================================================================
+check_ntsync() {
+    echo ""
+    log_info "Checking NTSync support..."
+    echo "Note: NTSync is available in Linux kernel 6.14+ (expected March 2025)"
+    echo "Kernel version: $(uname -r)"
+    
+    if [ -e "/dev/ntsync" ]; then
+        if lsof /dev/ntsync > /dev/null 2>&1; then
+            log_success "NTSync is available and running!"
         else
-            # Download BepInEx
-            log_info "Downloading BepInEx..."
-            BEPINEX_URL="https://github.com/BepInEx/BepInEx/releases/download/v6.0.0-be.752/BepInEx-Unity.IL2CPP-win-x64-6.0.0-be.752.zip"
-            
-            cd /tmp
-            wget -q "${BEPINEX_URL}" -O bepinex.zip
-            unzip -o bepinex.zip -d "${SERVER_PATH}/"
-            rm bepinex.zip
-            
-            log_success "BepInEx downloaded and installed"
+            log_info "NTSync device exists but not in use. Wine will use it when needed."
+        fi
+    else
+        log_info "NTSync not available. Server will work fine without it."
+    fi
+    echo ""
+}
+
+# =============================================================================
+# Setup BepInEx
+# =============================================================================
+setup_bepinex() {
+    log_info "Checking BepInEx installation..."
+    
+    mkdir -p "$s"
+    
+    if [ ! -d "$s/BepInEx" ]; then
+        log_info "Installing BepInEx from defaults..."
+        if [ -d "/opt/defaults/server" ] && [ "$(ls -A /opt/defaults/server 2>/dev/null)" ]; then
+            cp -r /opt/defaults/server/. "$s/"
+            log_success "BepInEx installed successfully"
+        else
+            log_warning "No default BepInEx files found. Plugins may not work."
         fi
     else
         log_info "BepInEx already installed"
     fi
     
-    # Create plugins directory
-    mkdir -p "${BEPINEX_DIR}/plugins"
-    mkdir -p "${BEPINEX_DIR}/config"
+    # Create required directories
+    mkdir -p "$s/BepInEx/plugins"
+    mkdir -p "$s/BepInEx/config"
+    mkdir -p "$s/BepInEx/patchers"
+}
+
+# =============================================================================
+# Update Server via SteamCMD
+# =============================================================================
+update_server() {
+    log_info "Updating V Rising Dedicated Server via SteamCMD..."
+    echo ""
     
-    # Setup Wine DLL override for doorstop
-    log_info "Configuring Wine for BepInEx doorstop..."
+    steamcmd.sh \
+        +@sSteamCmdForcePlatformType windows \
+        +force_install_dir "$s" \
+        +login anonymous \
+        +app_update 1829350 validate \
+        +quit
     
-    # Set winhttp override for doorstop
-    wine reg add "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides" /v winhttp /t REG_SZ /d native,builtin /f 2>/dev/null || true
+    if [ $? -eq 0 ]; then
+        log_success "Server updated successfully"
+        if [ -f "$s/steam_appid.txt" ]; then
+            echo "Steam App ID: $(cat "$s/steam_appid.txt")"
+        fi
+    else
+        log_warning "SteamCMD returned non-zero exit code. Server may still work."
+    fi
+    echo ""
+}
+
+# =============================================================================
+# Setup Configuration Files
+# =============================================================================
+setup_config() {
+    log_info "Setting up configuration files..."
     
-    # Apply Box64 configuration for BepInEx
-    if [ -f "${BEPINEX_DIR}/addition_stuff/box64.rc" ]; then
-        log_info "Applying custom Box64 configuration..."
-        export BOX64_RCFILE="${BEPINEX_DIR}/addition_stuff/box64.rc"
+    mkdir -p "$SETTINGS"
+    
+    # Copy ServerGameSettings if not exists
+    if [ ! -f "$SETTINGS/ServerGameSettings.json" ]; then
+        if [ -f "/opt/defaults/config/ServerGameSettings.json" ]; then
+            cp "/opt/defaults/config/ServerGameSettings.json" "$SETTINGS/"
+            log_info "Created ServerGameSettings.json from template"
+        elif [ -f "$s/VRisingServer_Data/StreamingAssets/Settings/ServerGameSettings.json" ]; then
+            cp "$s/VRisingServer_Data/StreamingAssets/Settings/ServerGameSettings.json" "$SETTINGS/"
+            log_info "Created ServerGameSettings.json from game defaults"
+        fi
     fi
     
-    log_success "BepInEx configuration complete"
-else
-    log_info "Plugins disabled (ENABLE_PLUGINS=${ENABLE_PLUGINS})"
-fi
-
-# -----------------------------------------------------------------------------
-# Start V Rising Server
-# -----------------------------------------------------------------------------
-log_info "=============================================="
-log_info "Starting V Rising Server..."
-log_info "=============================================="
-
-cd "${SERVER_PATH}"
-
-# Build command line arguments
-SERVER_ARGS="-persistentDataPath ${DATA_PATH}"
-SERVER_ARGS="${SERVER_ARGS} -serverName \"${SERVERNAME}\""
-SERVER_ARGS="${SERVER_ARGS} -saveName world1"
-SERVER_ARGS="${SERVER_ARGS} -logFile ${DATA_PATH}/VRisingServer.log"
-
-log_info "Server arguments: ${SERVER_ARGS}"
-
-# Start the server with Wine via Box64
-if [ "${ENABLE_PLUGINS}" = "true" ]; then
-    log_info "Starting with BepInEx enabled..."
+    # Copy ServerHostSettings if not exists
+    if [ ! -f "$SETTINGS/ServerHostSettings.json" ]; then
+        if [ -f "/opt/defaults/config/ServerHostSettings.json" ]; then
+            cp "/opt/defaults/config/ServerHostSettings.json" "$SETTINGS/"
+            log_info "Created ServerHostSettings.json from template"
+        elif [ -f "$s/VRisingServer_Data/StreamingAssets/Settings/ServerHostSettings.json" ]; then
+            cp "$s/VRisingServer_Data/StreamingAssets/Settings/ServerHostSettings.json" "$SETTINGS/"
+            log_info "Created ServerHostSettings.json from game defaults"
+        fi
+    fi
     
-    # Doorstop environment variables
-    export DOORSTOP_ENABLED=1
-    export DOORSTOP_TARGET_ASSEMBLY="${SERVER_PATH}/BepInEx/core/BepInEx.Unity.IL2CPP.dll"
-    export DOORSTOP_MONO_LIB_PATHS="${SERVER_PATH}/BepInEx/core"
-fi
+    log_success "Configuration files ready"
+}
 
-# Start server in background and capture PID
-wine64 VRisingServer.exe ${SERVER_ARGS} &
-VRISING_PID=$!
+# =============================================================================
+# Setup Logs
+# =============================================================================
+setup_logs() {
+    mkdir -p "$l"
+    cleanup_logs
+    
+    current_date=$(date +"%Y%m%d-%H%M")
+    LOGFILE="${current_date}-VRisingServer.log"
+    
+    if [ ! -f "${l}/${LOGFILE}" ]; then
+        touch "${l}/${LOGFILE}"
+    fi
+    
+    log_info "Log file: ${l}/${LOGFILE}"
+    
+    # Export for use in server start
+    export CURRENT_LOGFILE="${l}/${LOGFILE}"
+}
 
-log_success "V Rising Server started with PID: ${VRISING_PID}"
-log_info "Server log: ${DATA_PATH}/VRisingServer.log"
-log_info "=============================================="
+# =============================================================================
+# Initialize Wine
+# =============================================================================
+init_wine() {
+    log_info "Initializing Wine..."
+    
+    # Remove stale X lock
+    rm -f /tmp/.X0-lock /tmp/.X99-lock 2>/dev/null || true
+    
+    # Start Xvfb
+    log_info "Starting Xvfb virtual display..."
+    Xvfb :0 -screen 0 1024x768x16 &
+    sleep 3
+    
+    export DISPLAY=:0
+    
+    # Disable sound in Wine (not needed for server)
+    winetricks sound=disabled 2>/dev/null || true
+    
+    # Initialize Wine prefix
+    log_info "Initializing Wine prefix..."
+    wineboot --init 2>/dev/null || true
+    sleep 2
+    
+    log_success "Wine initialized"
+}
 
-# Wait for server process
-wait $VRISING_PID
-EXIT_CODE=$?
+# =============================================================================
+# Configure Plugins (BepInEx)
+# =============================================================================
+configure_plugins() {
+    echo ""
+    
+    if [ "$ENABLE_PLUGINS" = "true" ]; then
+        log_info "Plugins support is ENABLED"
+        
+        # Configure doorstop
+        if [ -f "$s/doorstop_config.ini" ]; then
+            sed -i "s/^enabled *=.*/enabled = true/" "$s/doorstop_config.ini"
+        fi
+        
+        # Set Wine DLL override for BepInEx
+        export WINEDLLOVERRIDES="winhttp=n,b"
+        
+        log_info "Wine DLL overrides: $WINEDLLOVERRIDES"
+    else
+        log_info "Plugins support is DISABLED"
+        
+        # Disable doorstop
+        if [ -f "$s/doorstop_config.ini" ]; then
+            sed -i "s/^enabled *=.*/enabled = false/" "$s/doorstop_config.ini"
+        fi
+    fi
+    echo ""
+}
 
-log_warning "V Rising Server exited with code: ${EXIT_CODE}"
+# =============================================================================
+# Start V Rising Server
+# =============================================================================
+start_server() {
+    cd "$s" || {
+        log_error "Failed to change to server directory: $s"
+        exit 1
+    }
+    
+    echo ""
+    echo "=============================================="
+    echo "Starting V Rising Dedicated Server"
+    echo "=============================================="
+    echo "Server Name: $SERVERNAME"
+    echo "Data Path: $p"
+    echo "Log File: $CURRENT_LOGFILE"
+    echo "Plugins: $ENABLE_PLUGINS"
+    echo "=============================================="
+    echo ""
+    
+    # Start the server
+    wine "$s/VRisingServer.exe" \
+        -serverName "$SERVERNAME" \
+        -persistentDataPath "$p" \
+        -logFile "$CURRENT_LOGFILE" \
+        -nographics \
+        -batchmode 2>&1 &
+    
+    ServerPID=$!
+    
+    log_success "Server started with PID: $ServerPID"
+    
+    # Tail log file and wait for server
+    sleep 5
+    if [ -f "$CURRENT_LOGFILE" ]; then
+        tail -n 0 -f "$CURRENT_LOGFILE" &
+    fi
+    
+    wait $ServerPID
+    EXIT_CODE=$?
+    
+    log_warning "Server exited with code: $EXIT_CODE"
+    return $EXIT_CODE
+}
 
-# Cleanup
-wineserver -k 2>/dev/null || true
+# =============================================================================
+# Main Execution
+# =============================================================================
+main() {
+    echo ""
+    echo "=============================================="
+    echo "V Rising ARM64 Server - Starting"
+    echo "=============================================="
+    echo ""
+    
+    # Print version info
+    print_versions
+    
+    # Load emulator settings
+    load_emulator_config
+    
+    # Check NTSync
+    check_ntsync
+    
+    # Setup BepInEx
+    setup_bepinex
+    
+    # Update server (if enabled)
+    if [ "$UPDATE_SERVER" = "true" ]; then
+        update_server
+    else
+        log_info "Server update skipped (UPDATE_SERVER=false)"
+    fi
+    
+    # Verify server executable exists
+    if [ ! -f "$s/VRisingServer.exe" ]; then
+        log_error "VRisingServer.exe not found!"
+        log_error "Run with UPDATE_SERVER=true to download the server."
+        exit 1
+    fi
+    
+    # Setup configuration
+    setup_config
+    
+    # Setup logs
+    setup_logs
+    
+    # Initialize Wine
+    init_wine
+    
+    # Configure plugins
+    configure_plugins
+    
+    # Start server
+    start_server
+}
 
-exit $EXIT_CODE
+# Run main function
+main

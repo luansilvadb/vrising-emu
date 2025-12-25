@@ -1,67 +1,94 @@
 # =============================================================================
-# BepInEx README for ARM64
+# BepInEx for V Rising ARM64 - README
 # =============================================================================
 
-This directory should contain the pre-packaged BepInEx files for ARM64.
+## About This Directory
 
-## Structure
+This directory contains default BepInEx configuration files that will be copied
+to the server directory on first startup if BepInEx is not already installed.
 
-When properly set up, this directory should contain:
+## Contents
 
 ```
 bepinex/
-├── BepInEx/
-│   ├── core/
-│   │   ├── BepInEx.Core.dll
-│   │   ├── BepInEx.Unity.IL2CPP.dll
-│   │   └── ... other core files
-│   ├── plugins/
-│   │   └── (empty - mods go here at runtime)
-│   ├── config/
-│   │   └── BepInEx.cfg
-│   ├── patchers/
-│   └── addition_stuff/
-│       └── box64.rc
-├── doorstop_config.ini
-├── winhttp.dll
-└── .doorstop_version
+├── doorstop_config.ini          # Unity Doorstop configuration
+├── addition_stuff/
+│   └── box64.rc                 # Box64 optimization settings
+└── README.md                    # This file
 ```
 
 ## ARM64 Compatibility
 
-The standard BepInEx release has issues on ARM64 due to:
-1. Il2CppInterop multithreading issues under Box64
-2. Cpp2IL crashes during assembly generation
+BepInEx on ARM64 requires special consideration:
 
-## Solutions
+1. **Il2CppInterop Issue**: The standard Il2CppInterop uses multithreaded file
+   writing which crashes under Box64 emulation.
 
-### Option 1: Use tsx-cloud Patched Version (Recommended)
+2. **Solution**: The tsx-cloud project provides a patched version that disables
+   problematic multithreading: https://github.com/tsx-cloud/Il2CppInterop
 
-The tsx-cloud project provides pre-generated interop assemblies:
-https://github.com/tsx-cloud/vrising-ntsync
+3. **Pre-generated Assemblies**: For best results, generate interop assemblies
+   on an x86_64 machine first, then copy them to ARM64.
 
-### Option 2: Generate on x86_64 Machine
+## Using Pre-built Image (Recommended)
 
-1. Run BepInEx on an x86_64 machine first
-2. Let it generate the interop assemblies
-3. Copy the entire BepInEx folder here
-4. The assemblies in `BepInEx/interop/` are the key files
+The easiest way to get BepInEx working on ARM64 is to use the pre-built image:
 
-### Option 3: Download Pre-packaged
+```yaml
+image: tsxcloud/vrising-ntsync:latest
+```
 
-Download from the releases page (if available) and extract here.
+This image includes:
+- Patched Il2CppInterop
+- Pre-configured Box64 settings
+- All necessary dependencies
+
+## Installing Plugins
+
+1. Enable plugins in your docker-compose:
+   ```yaml
+   environment:
+     - ENABLE_PLUGINS=true
+   ```
+
+2. Place plugin `.dll` files in:
+   ```
+   /mnt/vrising/server/BepInEx/plugins/
+   ```
+
+3. Restart the server
 
 ## Box64 Configuration
 
-The `addition_stuff/box64.rc` file contains Box64-specific settings for V Rising:
+The `box64.rc` file contains optimized settings for V Rising. Key settings:
 
-```ini
-[VRisingServer.exe]
-BOX64_DYNAREC=1
-BOX64_DYNAREC_BIGBLOCK=2
-BOX64_DYNAREC_FASTROUND=1
-BOX64_DYNAREC_FASTNAN=1
-BOX64_DYNAREC_SAFEFLAGS=0
-BOX64_DYNAREC_BLEEDING_EDGE=1
-BOX64_MALLOC_HACK=1
-```
+- `BOX64_DYNAREC=1` - Enable dynamic recompilation
+- `BOX64_DYNAREC_BIGBLOCK=2` - Larger compilation blocks
+- `BOX64_DYNAREC_BLEEDING_EDGE=1` - Latest optimizations
+
+## Troubleshooting
+
+### Plugins not loading
+
+1. Check if doorstop is enabled:
+   ```bash
+   cat /mnt/vrising/server/doorstop_config.ini | grep enabled
+   ```
+
+2. Check BepInEx logs:
+   ```bash
+   cat /mnt/vrising/server/BepInEx/LogOutput.log
+   ```
+
+### Server crashes with plugins
+
+1. Try disabling plugins first: `ENABLE_PLUGINS=false`
+2. Enable one plugin at a time to find the problematic one
+3. Check if the plugin is compatible with the current V Rising version
+
+## Links
+
+- [BepInEx Documentation](https://docs.bepinex.dev/)
+- [tsx-cloud/vrising-ntsync](https://github.com/tsx-cloud/vrising-ntsync)
+- [V Rising Mods on Thunderstore](https://v-rising.thunderstore.io/)
+- [Box64 Documentation](https://github.com/ptitSeb/box64/blob/main/docs/USAGE.md)
