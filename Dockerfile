@@ -201,16 +201,22 @@ RUN mkdir -p /etc/binfmt.d && \
 RUN mkdir -p ${WINE_PATH} && \
     cd /tmp && \
     echo "Downloading Wine ${WINE_VERSION}..." && \
-    # Try different Wine builds in order of preference
-    (wget -q "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-staging-tkg-amd64-wow64.tar.xz" -O wine.tar.xz || \
-    wget -q "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-staging-amd64-wow64.tar.xz" -O wine.tar.xz || \
-    wget -q "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-amd64-wow64.tar.xz" -O wine.tar.xz || \
-    wget -q "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-amd64.tar.xz" -O wine.tar.xz) && \
-    echo "Extracting Wine..." && \
-    tar -xf wine.tar.xz -C ${WINE_PATH} --strip-components=1 && \
+    # Try different Wine builds in order of preference (removed -q for visibility)
+    (wget "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-staging-tkg-amd64-wow64.tar.xz" -O wine.tar.xz || \
+    wget "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-staging-amd64-wow64.tar.xz" -O wine.tar.xz || \
+    wget "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-amd64-wow64.tar.xz" -O wine.tar.xz || \
+    wget "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-amd64.tar.xz" -O wine.tar.xz) && \
+    # Verify download succeeded (file should be >50MB)
+    ls -la wine.tar.xz && \
+    test -s wine.tar.xz || (echo "ERROR: Wine download failed!" && exit 1) && \
+    echo "Extracting Wine to ${WINE_PATH}..." && \
+    tar -xvf wine.tar.xz -C ${WINE_PATH} --strip-components=1 && \
     rm -f wine.tar.xz && \
+    # Verify wine64 binary exists
+    ls -la ${WINE_PATH}/bin/ && \
+    test -f ${WINE_PATH}/bin/wine64 || (echo "ERROR: wine64 not found after extraction!" && exit 1) && \
+    echo "Wine ${WINE_VERSION} extracted successfully" && \
     # Create Wine wrapper scripts (symlinks don't work on ARM64 - must use Box64)
-    # Using hardcoded path /opt/wine since WINE_PATH won't expand in single-quoted echo
     echo '#!/bin/bash' > /usr/local/bin/wine64 && \
     echo 'exec box64 /opt/wine/bin/wine64 "$@"' >> /usr/local/bin/wine64 && \
     chmod +x /usr/local/bin/wine64 && \
@@ -226,7 +232,7 @@ RUN mkdir -p ${WINE_PATH} && \
     echo '#!/bin/bash' > /usr/local/bin/winecfg && \
     echo 'exec box64 /opt/wine/bin/winecfg "$@"' >> /usr/local/bin/winecfg && \
     chmod +x /usr/local/bin/winecfg && \
-    echo "Wine ${WINE_VERSION} installed successfully"
+    echo "Wine ${WINE_VERSION} installed and wrappers created successfully"
 
 # -----------------------------------------------------------------------------
 # Install SteamCMD
@@ -249,8 +255,8 @@ RUN echo '#!/bin/bash' > /usr/local/bin/steamcmd.sh && \
     echo '' >> /usr/local/bin/steamcmd.sh && \
     echo 'cd /opt/steamcmd' >> /usr/local/bin/steamcmd.sh && \
     echo '' >> /usr/local/bin/steamcmd.sh && \
-    echo '# Run linux32/steamcmd directly with Box86' >> /usr/local/bin/steamcmd.sh && \
-    echo 'exec box86 /opt/steamcmd/linux32/steamcmd +@sSteamCmdForcePlatformBitness 32 "$@"' >> /usr/local/bin/steamcmd.sh && \
+    echo '# Run linux32/steamcmd directly with Box86 (no exec to handle self-updates)' >> /usr/local/bin/steamcmd.sh && \
+    echo 'box86 /opt/steamcmd/linux32/steamcmd +@sSteamCmdForcePlatformBitness 32 "$@"' >> /usr/local/bin/steamcmd.sh && \
     chmod +x /usr/local/bin/steamcmd.sh
 
 # -----------------------------------------------------------------------------
