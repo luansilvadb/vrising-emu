@@ -201,36 +201,49 @@ RUN mkdir -p /etc/binfmt.d && \
 RUN mkdir -p ${WINE_PATH} && \
     cd /tmp && \
     echo "Downloading Wine ${WINE_VERSION}..." && \
-    # Try different Wine builds in order of preference (removed -q for visibility)
+    # Try different Wine builds in order of preference
     (wget "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-staging-tkg-amd64-wow64.tar.xz" -O wine.tar.xz || \
     wget "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-staging-amd64-wow64.tar.xz" -O wine.tar.xz || \
     wget "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-amd64-wow64.tar.xz" -O wine.tar.xz || \
     wget "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-amd64.tar.xz" -O wine.tar.xz) && \
-    # Verify download succeeded (file should be >50MB)
+    # Verify download succeeded
     ls -la wine.tar.xz && \
     test -s wine.tar.xz || (echo "ERROR: Wine download failed!" && exit 1) && \
+    # Show archive structure for debugging
+    echo "=== Wine archive structure (first 30 files) ===" && \
+    tar -tf wine.tar.xz | head -30 && \
+    echo "==============================" && \
+    # Extract Wine
     echo "Extracting Wine to ${WINE_PATH}..." && \
-    tar -xvf wine.tar.xz -C ${WINE_PATH} --strip-components=1 && \
+    tar -xf wine.tar.xz -C ${WINE_PATH} --strip-components=1 && \
     rm -f wine.tar.xz && \
-    # Verify wine64 binary exists
-    ls -la ${WINE_PATH}/bin/ && \
-    test -f ${WINE_PATH}/bin/wine64 || (echo "ERROR: wine64 not found after extraction!" && exit 1) && \
-    echo "Wine ${WINE_VERSION} extracted successfully" && \
-    # Create Wine wrapper scripts (symlinks don't work on ARM64 - must use Box64)
+    # Show what was extracted
+    echo "=== Contents of ${WINE_PATH} ===" && \
+    ls -la ${WINE_PATH}/ && \
+    echo "=== Looking for wine binaries ===" && \
+    find ${WINE_PATH} -name "wine*" -type f 2>/dev/null | head -10 && \
+    # Try to find wine binary in known locations
+    WINE_BIN_PATH=$(find ${WINE_PATH} -name "wine64" -type f 2>/dev/null | head -1) && \
+    if [ -z "$WINE_BIN_PATH" ]; then WINE_BIN_PATH=$(find ${WINE_PATH} -name "wine" -type f 2>/dev/null | head -1); fi && \
+    echo "Found wine binary at: $WINE_BIN_PATH" && \
+    test -n "$WINE_BIN_PATH" || (echo "ERROR: No wine binary found!" && exit 1) && \
+    # Create Wine wrapper scripts pointing to found binary
+    WINE_BIN_DIR=$(dirname "$WINE_BIN_PATH") && \
+    echo "Wine bin directory: $WINE_BIN_DIR" && \
     echo '#!/bin/bash' > /usr/local/bin/wine64 && \
-    echo 'exec box64 /opt/wine/bin/wine64 "$@"' >> /usr/local/bin/wine64 && \
+    echo "exec box64 $WINE_BIN_PATH \"\$@\"" >> /usr/local/bin/wine64 && \
     chmod +x /usr/local/bin/wine64 && \
     echo '#!/bin/bash' > /usr/local/bin/wine && \
-    echo 'exec box64 /opt/wine/bin/wine64 "$@"' >> /usr/local/bin/wine && \
+    echo "exec box64 $WINE_BIN_PATH \"\$@\"" >> /usr/local/bin/wine && \
     chmod +x /usr/local/bin/wine && \
     echo '#!/bin/bash' > /usr/local/bin/wineserver && \
-    echo 'exec box64 /opt/wine/bin/wineserver "$@"' >> /usr/local/bin/wineserver && \
+    echo "exec box64 $WINE_BIN_DIR/wineserver \"\$@\"" >> /usr/local/bin/wineserver && \
     chmod +x /usr/local/bin/wineserver && \
     echo '#!/bin/bash' > /usr/local/bin/wineboot && \
-    echo 'exec box64 /opt/wine/bin/wineboot "$@"' >> /usr/local/bin/wineboot && \
+    echo "exec box64 $WINE_BIN_DIR/wineboot \"\$@\"" >> /usr/local/bin/wineboot && \
     chmod +x /usr/local/bin/wineboot && \
     echo '#!/bin/bash' > /usr/local/bin/winecfg && \
-    echo 'exec box64 /opt/wine/bin/winecfg "$@"' >> /usr/local/bin/winecfg && \
+    echo "exec box64 $WINE_BIN_DIR/winecfg \"\$@\"" >> /usr/local/bin/winecfg && \
     chmod +x /usr/local/bin/winecfg && \
     echo "Wine ${WINE_VERSION} installed and wrappers created successfully"
 
