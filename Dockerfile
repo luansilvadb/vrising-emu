@@ -179,8 +179,8 @@ COPY --from=box86-builder /box86-install/usr/local/bin/box86 /usr/local/bin/box8
 RUN ldconfig
 
 # Verify emulators work
-RUN box64 --version || echo "Box64 installed" && \
-    box86 --version || echo "Box86 installed"
+RUN echo "Verifying Box64..." && box64 --version 2>&1 | head -1 && \
+    echo "Verifying Box86..." && box86 --version 2>&1 | head -1
 
 # -----------------------------------------------------------------------------
 # Register Box64/Box86 with binfmt_misc for automatic x86/x86_64 emulation

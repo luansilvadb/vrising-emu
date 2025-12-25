@@ -106,11 +106,17 @@ print_versions() {
     echo "Architecture: $(uname -m)"
     
     if command -v box64 &> /dev/null; then
-        echo "Box64: $(box64 --version 2>&1 | head -1 || echo 'installed')"
+        # Ensure banner is suppressed for this check
+        export BOX64_NOBANNER=1
+        BOX64_VER=$(box64 --version 2>&1 | head -1 || echo "installed")
+        echo "Box64: $BOX64_VER"
     fi
     
     if command -v box86 &> /dev/null; then
-        echo "Box86: installed"
+        # Ensure banner is suppressed for this check
+        export BOX86_NOBANNER=1
+        BOX86_VER=$(box86 --version 2>&1 | head -1 || echo "installed")
+        echo "Box86: $BOX86_VER"
     fi
     
     if command -v wine &> /dev/null; then
