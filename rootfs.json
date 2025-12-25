@@ -1,0 +1,130 @@
+{
+  "v1": {
+    "Fedora 40 (EroFS)": {
+      "DistroMatch": "fedora",
+      "DistroVersion": "40",
+      "URL": "https://rootfs.fex-emu.gg/Fedora_40/2025-01-08/Fedora_40.ero",
+      "Hash": "321b3577ed0fcc91",
+      "Type": "erofs"
+    },
+    "Fedora 40 (SquashFS)": {
+      "DistroMatch": "fedora",
+      "DistroVersion": "40",
+      "URL": "https://rootfs.fex-emu.gg/Fedora_40/2025-01-08/Fedora_40.sqsh",
+      "Hash": "fb51fcd7f086fa19",
+      "Type": "squashfs"
+    },
+    "Fedora 38 (EroFS)": {
+      "DistroMatch": "fedora",
+      "DistroVersion": "38",
+      "URL": "https://rootfs.fex-emu.gg/Fedora_38/2024-03-02/Fedora_38.ero",
+      "Hash": "db49f7f3d34912c9",
+      "Type": "erofs"
+    },
+    "Fedora 38 (SquashFS)": {
+      "DistroMatch": "fedora",
+      "DistroVersion": "38",
+      "URL": "https://rootfs.fex-emu.gg/Fedora_38/2024-03-02/Fedora_38.sqsh",
+      "Hash": "820f39fc95ab2e22",
+      "Type": "squashfs"
+    },
+    "ArchLinux (EroFS)": {
+      "DistroMatch": "arch",
+      "DistroVersion": "rolling",
+      "URL": "https://rootfs.fex-emu.gg/ArchLinux/2025-01-08/ArchLinux.ero",
+      "Hash": "7f0f84476ae1414c",
+      "Type": "erofs"
+    },
+    "ArchLinux (SquashFS)": {
+      "DistroMatch": "arch",
+      "DistroVersion": "rolling",
+      "URL": "https://rootfs.fex-emu.gg/ArchLinux/2025-01-08/ArchLinux.sqsh",
+      "Hash": "1e44c5d1278fce72",
+      "Type": "squashfs"
+    },
+    "Ubuntu 24.04 (EroFS)": {
+      "DistroMatch": "ubuntu",
+      "DistroVersion": "24.04",
+      "URL": "https://rootfs.fex-emu.gg/Ubuntu_24_04/2025-03-04/Ubuntu_24_04.ero",
+      "Hash": "c0e47c787cb7d6ef",
+      "Type": "erofs"
+    },
+    "Ubuntu 24.04 (SquashFS)": {
+      "DistroMatch": "ubuntu",
+      "DistroVersion": "24.04",
+      "URL": "https://rootfs.fex-emu.gg/Ubuntu_24_04/2025-03-04/Ubuntu_24_04.sqsh",
+      "Hash": "6d469a5d2bb838ac",
+      "Type": "squashfs"
+    },
+    "Ubuntu 23.10 (EroFS)": {
+      "DistroMatch": "ubuntu",
+      "DistroVersion": "23.10",
+      "URL": "https://rootfs.fex-emu.gg/Ubuntu_23_10/2024-05-27/Ubuntu_23_10.ero",
+      "Hash": "5f3f9cb92798f652",
+      "Type": "erofs"
+    },
+    "Ubuntu 23.10 (SquashFS)": {
+      "DistroMatch": "ubuntu",
+      "DistroVersion": "23.10",
+      "URL": "https://rootfs.fex-emu.gg/Ubuntu_23_10/2024-05-27/Ubuntu_23_10.sqsh",
+      "Hash": "1138721d391fa266",
+      "Type": "squashfs"
+    },
+    "Ubuntu 23.04 (EroFS)": {
+      "DistroMatch": "ubuntu",
+      "DistroVersion": "23.04",
+      "URL": "https://rootfs.fex-emu.gg/Ubuntu_23_04/2023-12-03/Ubuntu_23_04.ero",
+      "Hash": "d0145705a6037e3e",
+      "Type": "erofs"
+    },
+    "Ubuntu 23.04 (SquashFS)": {
+      "DistroMatch": "ubuntu",
+      "DistroVersion": "23.04",
+      "URL": "https://rootfs.fex-emu.gg/Ubuntu_23_04/2023-12-03/Ubuntu_23_04.sqsh",
+      "Hash": "b5b368b5612ae55c",
+      "Type": "squashfs"
+    },
+    "Ubuntu 22.10 (EroFS)": {
+      "DistroMatch": "ubuntu",
+      "DistroVersion": "22.10",
+      "URL": "https://rootfs.fex-emu.gg/Ubuntu_22_10/2023-05-19/Ubuntu_22_10.ero",
+      "Hash": "f0c64cf0f62b3fe6",
+      "Type": "erofs"
+    },
+    "Ubuntu 22.10 (SquashFS)": {
+      "DistroMatch": "ubuntu",
+      "DistroVersion": "22.10",
+      "URL": "https://rootfs.fex-emu.gg/Ubuntu_22_10/2023-05-19/Ubuntu_22_10.sqsh",
+      "Hash": "26903600fbefe430",
+      "Type": "squashfs"
+    },
+    "Ubuntu 22.04 (EroFS)": {
+      "DistroMatch": "ubuntu",
+      "DistroVersion": "22.04",
+      "URL": "https://rootfs.fex-emu.gg/Ubuntu_22_04/2025-01-08/Ubuntu_22_04.ero",
+      "Hash": "b02ee3a21ec0624e",
+      "Type": "erofs"
+    },
+    "Ubuntu 22.04 (SquashFS)": {
+      "DistroMatch": "ubuntu",
+      "DistroVersion": "22.04",
+      "URL": "https://rootfs.fex-emu.gg/Ubuntu_22_04/2025-01-08/Ubuntu_22_04.sqsh",
+      "Hash": "73c9269e4c4ca172",
+      "Type": "squashfs"
+    },
+    "Ubuntu 20.04 (EroFS)": {
+      "DistroMatch": "ubuntu",
+      "DistroVersion": "20.04",
+      "URL": "https://rootfs.fex-emu.gg/Ubuntu_20_04/2023-10-01/Ubuntu_20_04.ero",
+      "Hash": "12898235f56a51a3",
+      "Type": "erofs"
+    },
+    "Ubuntu 20.04 (SquashFS)": {
+      "DistroMatch": "ubuntu",
+      "DistroVersion": "20.04",
+      "URL": "https://rootfs.fex-emu.gg/Ubuntu_20_04/2023-10-01/Ubuntu_20_04.sqsh",
+      "Hash": "8514ebee444d1ee2",
+      "Type": "squashfs"
+    }
+  }
+}

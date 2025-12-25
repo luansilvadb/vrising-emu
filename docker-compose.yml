@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  vrising:
+    build: .
+    image: vrising-fex:latest
+    container_name: vrising-fex
+    restart: unless-stopped
+    # FEX-Emu requires unconfined seccomp to handle signal masking and syscall emulation correctly
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - SYS_PTRACE
+    environment:
+      - SERVER_NAME=My FEX Server
+      - SAVE_NAME=world1
+      - ENABLE_BEPINEX=true
+      - GAME_PORT=9876
+      - QUERY_PORT=9877
+    volumes:
+      - ./vrising-persistent:/data
+    # Easypanel generally likes resources limits, but FEX needs some CPU
+    deploy:
+      resources:
+        limits:
+          memory: 8192M
+    ports:
+      - "9876:9876/udp"
+      - "9877:9877/udp"
