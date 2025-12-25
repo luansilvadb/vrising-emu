@@ -142,6 +142,44 @@ load_emulator_config() {
             fi
         done < "$s/BepInEx/addition_stuff/box64.rc"
     fi
+    
+    # Register binfmt_misc for automatic x86/x86_64 emulation
+    # This allows steamcmd.sh and other scripts to work transparently
+    setup_binfmt_misc
+}
+
+# =============================================================================
+# Setup binfmt_misc for Box64/Box86
+# =============================================================================
+setup_binfmt_misc() {
+    # Check if binfmt_misc is mounted
+    if [ ! -d "/proc/sys/fs/binfmt_misc" ]; then
+        log_warning "binfmt_misc not available - mounting..."
+        mount -t binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc 2>/dev/null || true
+    fi
+    
+    if [ -d "/proc/sys/fs/binfmt_misc" ] && [ -f "/proc/sys/fs/binfmt_misc/register" ]; then
+        log_info "Registering Box64/Box86 with binfmt_misc..."
+        
+        # Unregister existing entries if present
+        echo -1 > /proc/sys/fs/binfmt_misc/box64 2>/dev/null || true
+        echo -1 > /proc/sys/fs/binfmt_misc/box86 2>/dev/null || true
+        
+        # Register Box64 for x86_64 binaries
+        echo ':box64:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x3e\x00:\xff\xff\xff\xff\xff\xfe\xfe\x00\x00\x00\x00\x00\x00\x00\x00\x00\xfe\xff\xff\xff:/usr/local/bin/box64:OCF' > /proc/sys/fs/binfmt_misc/register 2>/dev/null || log_warning "Could not register Box64 with binfmt_misc"
+        
+        # Register Box86 for x86 (32-bit) binaries
+        echo ':box86:M::\x7fELF\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x03\x00:\xff\xff\xff\xff\xff\xfe\xfe\x00\x00\x00\x00\x00\x00\x00\x00\x00\xfe\xff\xff\xff:/usr/local/bin/box86:OCF' > /proc/sys/fs/binfmt_misc/register 2>/dev/null || log_warning "Could not register Box86 with binfmt_misc"
+        
+        if [ -f "/proc/sys/fs/binfmt_misc/box64" ]; then
+            log_success "Box64 registered with binfmt_misc"
+        fi
+        if [ -f "/proc/sys/fs/binfmt_misc/box86" ]; then
+            log_success "Box86 registered with binfmt_misc"
+        fi
+    else
+        log_warning "binfmt_misc not available - x86 binaries will need explicit Box64/Box86 invocation"
+    fi
 }
 
 # =============================================================================

@@ -183,6 +183,17 @@ RUN box64 --version || echo "Box64 installed" && \
     box86 --version || echo "Box86 installed"
 
 # -----------------------------------------------------------------------------
+# Register Box64/Box86 with binfmt_misc for automatic x86/x86_64 emulation
+# This allows scripts like steamcmd.sh to work transparently
+# -----------------------------------------------------------------------------
+RUN mkdir -p /etc/binfmt.d && \
+    # Box64 for x86_64 ELF binaries
+    echo ':box64:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x3e\x00:\xff\xff\xff\xff\xff\xfe\xfe\x00\x00\x00\x00\x00\x00\x00\x00\x00\xfe\xff\xff\xff:/usr/local/bin/box64:CF' > /etc/binfmt.d/box64.conf && \
+    # Box86 for x86 (32-bit) ELF binaries
+    echo ':box86:M::\x7fELF\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x03\x00:\xff\xff\xff\xff\xff\xfe\xfe\x00\x00\x00\x00\x00\x00\x00\x00\x00\xfe\xff\xff\xff:/usr/local/bin/box86:CF' > /etc/binfmt.d/box86.conf && \
+    echo "binfmt_misc config files created"
+
+# -----------------------------------------------------------------------------
 # Install Wine (Staging TKG with WoW64)
 # Using Kron4ek builds - cross-reference verified 2025-12-25
 # Available: wine-11.0-rc3-staging-tkg-amd64-wow64.tar.xz
@@ -198,12 +209,23 @@ RUN mkdir -p ${WINE_PATH} && \
     echo "Extracting Wine..." && \
     tar -xf wine.tar.xz -C ${WINE_PATH} --strip-components=1 && \
     rm -f wine.tar.xz && \
-    # Create symlinks for Wine binaries
-    ln -sf ${WINE_PATH}/bin/wine64 /usr/local/bin/wine64 && \
-    ln -sf ${WINE_PATH}/bin/wine /usr/local/bin/wine && \
-    ln -sf ${WINE_PATH}/bin/wineserver /usr/local/bin/wineserver && \
-    ln -sf ${WINE_PATH}/bin/wineboot /usr/local/bin/wineboot && \
-    ln -sf ${WINE_PATH}/bin/winecfg /usr/local/bin/winecfg && \
+    # Create Wine wrapper scripts (symlinks don't work on ARM64 - must use Box64)
+    # Using hardcoded path /opt/wine since WINE_PATH won't expand in single-quoted echo
+    echo '#!/bin/bash' > /usr/local/bin/wine64 && \
+    echo 'exec box64 /opt/wine/bin/wine64 "$@"' >> /usr/local/bin/wine64 && \
+    chmod +x /usr/local/bin/wine64 && \
+    echo '#!/bin/bash' > /usr/local/bin/wine && \
+    echo 'exec box64 /opt/wine/bin/wine64 "$@"' >> /usr/local/bin/wine && \
+    chmod +x /usr/local/bin/wine && \
+    echo '#!/bin/bash' > /usr/local/bin/wineserver && \
+    echo 'exec box64 /opt/wine/bin/wineserver "$@"' >> /usr/local/bin/wineserver && \
+    chmod +x /usr/local/bin/wineserver && \
+    echo '#!/bin/bash' > /usr/local/bin/wineboot && \
+    echo 'exec box64 /opt/wine/bin/wineboot "$@"' >> /usr/local/bin/wineboot && \
+    chmod +x /usr/local/bin/wineboot && \
+    echo '#!/bin/bash' > /usr/local/bin/winecfg && \
+    echo 'exec box64 /opt/wine/bin/winecfg "$@"' >> /usr/local/bin/winecfg && \
+    chmod +x /usr/local/bin/winecfg && \
     echo "Wine ${WINE_VERSION} installed successfully"
 
 # -----------------------------------------------------------------------------
@@ -212,10 +234,23 @@ RUN mkdir -p ${WINE_PATH} && \
 RUN mkdir -p ${STEAMCMD_PATH} && \
     cd ${STEAMCMD_PATH} && \
     curl -sqL "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" | tar zxvf - && \
-    chmod +x steamcmd.sh && \
-    # Create wrapper script for SteamCMD
-    echo '#!/bin/bash' > /usr/local/bin/steamcmd.sh && \
-    echo 'cd ${STEAMCMD_PATH} && ./steamcmd.sh "$@"' >> /usr/local/bin/steamcmd.sh && \
+    chmod +x steamcmd.sh
+
+# Create robust SteamCMD wrapper script
+# This runs linux32/steamcmd directly via Box86 (binary is included in tar.gz)
+RUN echo '#!/bin/bash' > /usr/local/bin/steamcmd.sh && \
+    echo '# SteamCMD wrapper for ARM64 with Box86 emulation' >> /usr/local/bin/steamcmd.sh && \
+    echo '' >> /usr/local/bin/steamcmd.sh && \
+    echo '# Box86 configuration for stability' >> /usr/local/bin/steamcmd.sh && \
+    echo 'export BOX86_NOBANNER=1' >> /usr/local/bin/steamcmd.sh && \
+    echo 'export BOX86_LOG=0' >> /usr/local/bin/steamcmd.sh && \
+    echo 'export BOX86_DYNAREC_STRONGMEM=1' >> /usr/local/bin/steamcmd.sh && \
+    echo 'export BOX86_LD_LIBRARY_PATH="/opt/steamcmd/linux32"' >> /usr/local/bin/steamcmd.sh && \
+    echo '' >> /usr/local/bin/steamcmd.sh && \
+    echo 'cd /opt/steamcmd' >> /usr/local/bin/steamcmd.sh && \
+    echo '' >> /usr/local/bin/steamcmd.sh && \
+    echo '# Run linux32/steamcmd directly with Box86' >> /usr/local/bin/steamcmd.sh && \
+    echo 'exec box86 /opt/steamcmd/linux32/steamcmd +@sSteamCmdForcePlatformBitness 32 "$@"' >> /usr/local/bin/steamcmd.sh && \
     chmod +x /usr/local/bin/steamcmd.sh
 
 # -----------------------------------------------------------------------------
