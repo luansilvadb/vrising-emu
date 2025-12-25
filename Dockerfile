@@ -156,13 +156,17 @@ RUN mkdir -p /etc/binfmt.d && \
 # -----------------------------------------------------------------------------
 # Install Wine (Staging with NTSync)
 # -----------------------------------------------------------------------------
-ENV WINE_VERSION=10.9
-ENV WINE_BRANCH=staging-tkg-ntsync-wow64
+# Note: Check https://github.com/Kron4ek/Wine-Builds/releases for latest version
+# Format: wine-{VERSION}-staging-tkg-{OPTIONS}-amd64.tar.xz
+ENV WINE_VERSION=10.15
+ENV WINE_BRANCH=staging-tkg-ntsync-amd64-wow64
 
 RUN mkdir -p ${WINE_PATH} && \
     cd /tmp && \
     # Download Wine from Kron4ek builds
-    wget -q "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-${WINE_BRANCH}-amd64.tar.xz" -O wine.tar.xz && \
+    # Try the exact URL, if it fails, build won't proceed
+    wget -q "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-${WINE_BRANCH}.tar.xz" -O wine.tar.xz || \
+    wget -q "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/wine-${WINE_VERSION}-staging-tkg-amd64-wow64.tar.xz" -O wine.tar.xz && \
     tar -xf wine.tar.xz -C ${WINE_PATH} --strip-components=1 && \
     rm wine.tar.xz && \
     # Create symlinks
