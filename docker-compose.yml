@@ -1,0 +1,53 @@
+# V Rising ARM64 Server - Development Docker Compose
+# Use this for local development/testing
+# For production EasyPanel: use docker-compose.easypanel.yml
+
+services:
+  vrising:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vrising-arm64-dev
+
+    environment:
+      - TZ=America/Sao_Paulo
+      - SERVERNAME=VRising-ARM64-Dev
+      - ENABLE_PLUGINS=true
+      - UPDATE_SERVER=true
+      # Box64 optimizations
+      - BOX64_DYNAREC=1
+      - BOX64_DYNAREC_FASTROUND=1
+      - BOX64_DYNAREC_FASTNAN=1
+      - BOX64_DYNAREC_SAFEFLAGS=0
+      - BOX64_DYNAREC_BIGBLOCK=2
+      - BOX64_DYNAREC_BLEEDING_EDGE=1
+      # Wine
+      - WINEDEBUG=-all
+      - WINE_LARGE_ADDRESS_AWARE=1
+
+    volumes:
+      - ./vrising/server:/mnt/vrising/server
+      - ./vrising/persistentdata:/mnt/vrising/persistentdata
+
+    ports:
+      - "9876:9876/udp"
+      - "9877:9877/udp"
+      - "25575:25575/tcp"
+      - "9099:9090/tcp"
+
+    restart: unless-stopped
+    stop_grace_period: 60s
+
+    # Uncomment if host has NTSync support
+    # devices:
+    #   - /dev/ntsync:/dev/ntsync
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '3.5'
+          memory: 16G
+        reservations:
+          cpus: '2.0'
+          memory: 8G

@@ -1,0 +1,26 @@
+# Box64 configuration for V Rising with BepInEx
+# This file is copied to BepInEx/addition_stuff/box64.rc
+# See: https://github.com/ptitSeb/box64/blob/main/docs/USAGE.md
+
+[VRisingServer.exe]
+# Enable Dynarec (dynamic recompilation)
+BOX64_DYNAREC=1
+
+# Use larger blocks for better performance
+BOX64_DYNAREC_BIGBLOCK=2
+
+# Fast floating point operations (may reduce accuracy slightly)
+BOX64_DYNAREC_FASTROUND=1
+BOX64_DYNAREC_FASTNAN=1
+
+# Reduce safety checks for performance
+BOX64_DYNAREC_SAFEFLAGS=0
+
+# Strong memory model (may help with threading issues)
+BOX64_DYNAREC_STRONGMEM=0
+
+# Enable bleeding edge optimizations
+BOX64_DYNAREC_BLEEDING_EDGE=1
+
+# Memory allocation hack for some games
+BOX64_MALLOC_HACK=1
