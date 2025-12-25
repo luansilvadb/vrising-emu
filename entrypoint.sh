@@ -114,7 +114,20 @@ print_versions() {
     fi
     
     if command -v wine &> /dev/null; then
-        echo "Wine: $(wine --version 2>&1 || echo 'installed')"
+        WINE_VERSION_OUTPUT=$(wine --version 2>&1)
+        WINE_EXIT_CODE=$?
+        if [ $WINE_EXIT_CODE -eq 0 ]; then
+            echo "Wine: $WINE_VERSION_OUTPUT"
+        else
+            echo "Wine: ERROR - Failed to execute Wine"
+            echo "Wine error output: $WINE_VERSION_OUTPUT"
+            if echo "$WINE_VERSION_OUTPUT" | grep -q "could not load ntdll.so"; then
+                log_error "Wine ntdll.so loading failure detected!"
+                log_error "This indicates BOX64_LD_LIBRARY_PATH misconfiguration in Wine wrappers."
+                log_error "Please rebuild the Docker image to fix Wine library paths."
+                exit 1
+            fi
+        fi
     fi
     
     echo "Server Name: $SERVERNAME"
