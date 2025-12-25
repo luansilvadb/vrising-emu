@@ -222,9 +222,8 @@ RUN mkdir -p ${WINE_PATH} && \
     ls -la ${WINE_PATH}/ && \
     echo "=== Looking for wine binaries ===" && \
     find ${WINE_PATH} -name "wine*" -type f 2>/dev/null | head -10 && \
-    # Try to find wine binary in known locations
-    WINE_BIN_PATH=$(find ${WINE_PATH} -name "wine64" -type f 2>/dev/null | head -1) && \
-    if [ -z "$WINE_BIN_PATH" ]; then WINE_BIN_PATH=$(find ${WINE_PATH} -name "wine" -type f 2>/dev/null | head -1); fi && \
+    # Find wine binary - SEARCH ONLY IN BIN to avoid .so library files!
+    WINE_BIN_PATH=$(find ${WINE_PATH}/bin -name "wine64" -o -name "wine" 2>/dev/null | grep -v "\.so" | head -1) && \
     echo "Found wine binary at: $WINE_BIN_PATH" && \
     test -n "$WINE_BIN_PATH" || (echo "ERROR: No wine binary found!" && exit 1) && \
     # Determine Wine directory structure
