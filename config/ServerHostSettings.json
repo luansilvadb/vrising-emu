@@ -1,0 +1,30 @@
+{
+  "Name": "VRising-ARM64",
+  "Description": "Servidor V Rising ARM64 com BepInEx",
+  "Port": 9876,
+  "QueryPort": 9877,
+  "MaxConnectedUsers": 10,
+  "MaxConnectedAdmins": 2,
+  "ServerFps": 30,
+  "SaveName": "world1",
+  "Password": "",
+  "Secure": true,
+  "ListOnSteam": false,
+  "ListOnEOS": false,
+  "AutoSaveCount": 20,
+  "AutoSaveInterval": 300,
+  "CompressSaveFiles": true,
+  "GameSettingsPreset": "",
+  "AdminOnlyDebugEvents": true,
+  "DisableDebugEvents": false,
+  "Rcon": {
+    "Enabled": true,
+    "Port": 25575,
+    "Password": "CHANGE_ME_TO_STRONG_PASSWORD"
+  },
+  "API": {
+    "Enabled": true,
+    "BindAddress": "0.0.0.0",
+    "BindPort": 9090
+  }
+}

@@ -1,0 +1,96 @@
+# Docker Compose para V Rising ARM64 - Otimizado para EasyPanel
+# Hardware: Oracle Ampere CPU 4x, 24GB RAM
+# 
+# NOTA: No EasyPanel, você pode usar este arquivo como referência
+# para configurar as variáveis de ambiente e volumes via UI.
+#
+# Para desenvolvimento local: docker compose -f docker-compose.easypanel.yml up
+
+services:
+  vrising:
+    image: tsxcloud/vrising-ntsync:latest
+    container_name: vrising-arm64
+    
+    # Variáveis de Ambiente
+    environment:
+      # Configuração Básica
+      - TZ=America/Sao_Paulo
+      - SERVERNAME=VRising-ARM64-Server
+      
+      # BepInEx / Plugins
+      - ENABLE_PLUGINS=true
+      
+      # Wine Performance
+      - WINE_LARGE_ADDRESS_AWARE=1
+      - WINEDEBUG=-all
+      
+      # Box64 Dynarec Optimizations (ARM64)
+      - BOX64_DYNAREC=1
+      - BOX64_DYNAREC_FASTROUND=1
+      - BOX64_DYNAREC_FASTNAN=1
+      - BOX64_DYNAREC_SAFEFLAGS=0
+      - BOX64_DYNAREC_BIGBLOCK=2
+      - BOX64_DYNAREC_STRONGMEM=0
+      - BOX64_DYNAREC_BLEEDING_EDGE=1
+      
+      # Memory Optimization
+      - BOX64_MALLOC_HACK=1
+    
+    # Volumes Persistentes
+    volumes:
+      # Arquivos do servidor (Wine prefix, V Rising, BepInEx)
+      - ./vrising/server:/mnt/vrising/server
+      # Dados persistentes (saves, configs)
+      - ./vrising/persistentdata:/mnt/vrising/persistentdata
+    
+    # Portas
+    ports:
+      # Game port (UDP) - OBRIGATÓRIO
+      - "9876:9876/udp"
+      # Query port (UDP) - OBRIGATÓRIO para server browser
+      - "9877:9877/udp"
+      # RCON (TCP) - Opcional, para administração remota
+      - "25575:25575/tcp"
+      # API Metrics/Prometheus (TCP) - Opcional
+      - "9099:9090/tcp"
+    
+    # Limites de Recursos (ajuste conforme hardware)
+    # No EasyPanel, configure via UI → Resources
+    deploy:
+      resources:
+        limits:
+          cpus: '3.5'          # Deixa 0.5 core para o sistema
+          memory: 16G          # V Rising usa 8-12GB típico
+        reservations:
+          cpus: '2.0'
+          memory: 8G
+    
+    # Política de Restart
+    restart: unless-stopped
+    
+    # Tempo de espera para autosave antes de parar
+    stop_grace_period: 60s
+    
+    # Network
+    network_mode: bridge
+    
+    # NTSync Device (APENAS se o host suporta)
+    # Verifique com: ls /dev/ntsync
+    # Se não existir, COMENTE as linhas abaixo:
+    # devices:
+    #   - /dev/ntsync:/dev/ntsync
+    
+    # Health Check (opcional)
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f VRisingServer || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 300s  # 5 minutos para primeiro boot
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
