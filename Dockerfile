@@ -231,18 +231,23 @@ RUN mkdir -p ${WINE_PATH} && \
     WINE_BIN_DIR=$(dirname "$WINE_BIN_PATH") && \
     echo "Wine bin directory: $WINE_BIN_DIR" && \
     echo '#!/bin/bash' > /usr/local/bin/wine64 && \
+    echo 'export BOX64_LD_LIBRARY_PATH="/opt/wine/lib/wine/x86_64-unix:/opt/wine/lib:$BOX64_LD_LIBRARY_PATH"' >> /usr/local/bin/wine64 && \
     echo "exec box64 $WINE_BIN_PATH \"\$@\"" >> /usr/local/bin/wine64 && \
     chmod +x /usr/local/bin/wine64 && \
     echo '#!/bin/bash' > /usr/local/bin/wine && \
+    echo 'export BOX64_LD_LIBRARY_PATH="/opt/wine/lib/wine/x86_64-unix:/opt/wine/lib:$BOX64_LD_LIBRARY_PATH"' >> /usr/local/bin/wine && \
     echo "exec box64 $WINE_BIN_PATH \"\$@\"" >> /usr/local/bin/wine && \
     chmod +x /usr/local/bin/wine && \
     echo '#!/bin/bash' > /usr/local/bin/wineserver && \
+    echo 'export BOX64_LD_LIBRARY_PATH="/opt/wine/lib/wine/x86_64-unix:/opt/wine/lib:$BOX64_LD_LIBRARY_PATH"' >> /usr/local/bin/wineserver && \
     echo "exec box64 $WINE_BIN_DIR/wineserver \"\$@\"" >> /usr/local/bin/wineserver && \
     chmod +x /usr/local/bin/wineserver && \
     echo '#!/bin/bash' > /usr/local/bin/wineboot && \
+    echo 'export BOX64_LD_LIBRARY_PATH="/opt/wine/lib/wine/x86_64-unix:/opt/wine/lib:$BOX64_LD_LIBRARY_PATH"' >> /usr/local/bin/wineboot && \
     echo "exec box64 $WINE_BIN_DIR/wineboot \"\$@\"" >> /usr/local/bin/wineboot && \
     chmod +x /usr/local/bin/wineboot && \
     echo '#!/bin/bash' > /usr/local/bin/winecfg && \
+    echo 'export BOX64_LD_LIBRARY_PATH="/opt/wine/lib/wine/x86_64-unix:/opt/wine/lib:$BOX64_LD_LIBRARY_PATH"' >> /usr/local/bin/winecfg && \
     echo "exec box64 $WINE_BIN_DIR/winecfg \"\$@\"" >> /usr/local/bin/winecfg && \
     chmod +x /usr/local/bin/winecfg && \
     echo "Wine ${WINE_VERSION} installed and wrappers created successfully"
