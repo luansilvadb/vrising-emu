@@ -87,27 +87,18 @@ else
     exit 1
 fi
 
-# BepInEx Setup
-if [ "$ENABLE_BEPINEX" = "true" ]; then
-    echo ">>> Setting up BepInEx..."
-    # Previous URL logic is fine, but ensure it's robust
-    BEPINEX_VERSION="6.0.0-be.668" 
-    BEPINEX_URL="https://github.com/BepInEx/BepInEx/releases/download/v${BEPINEX_VERSION}/BepInEx_UnityIL2CPP_x64_${BEPINEX_VERSION}.zip"
-    
-    # Only download if missing core
-    if [ ! -d "$SERVER_DIR/BepInEx/core" ]; then
-        echo "Downloading BepInEx..."
-        curl -L -o bepinex.zip "$BEPINEX_URL"
-        unzip -o bepinex.zip -d "$SERVER_DIR"
-        rm bepinex.zip
-    fi
-    
-    # BepInEx Override (Environment)
-    export WINEDLLOVERRIDES="winhttp=n,b"
-    export DOORSTOP_ENABLE=TRUE
-    export DOORSTOP_TARGET_ASSEMBLY="$SERVER_DIR/BepInEx/core/BepInEx.IL2CPP.dll"
-    
-    echo "BepInEx enabled."
+
+
+# Cleanup BepInEx artifacts to ensure Vanilla state
+if [ -f "$SERVER_DIR/winhttp.dll" ]; then
+    echo ">>> Detecting BepInEx artifacts. Cleaning up to ensure Vanilla startup..."
+    rm -f "$SERVER_DIR/winhttp.dll"
+    rm -f "$SERVER_DIR/doorstop_config.ini"
+    rm -rf "$SERVER_DIR/BepInEx"
+    rm -f "$SERVER_DIR/preloader_*.log"
+    # The dotnet folder is likely a BepInEx dependency, but we'll leave it unless we are sure it conflicts.
+    # Usually removing winhttp.dll is enough to disable the injection.
+    echo ">>> BepInEx removed."
 fi
 
 # Start Xvfb
@@ -120,7 +111,7 @@ sleep 2
 echo ">>> Configuring Wine..."
 export WINEPREFIX="/data/wineprefix"
 # Ensure simple non-interactive setup
-export WINEDLLOVERRIDES="mscoree,mshtml=;winhttp=n,b" 
+export WINEDLLOVERRIDES="mscoree,mshtml=" 
 
 # Ensure wine boot runs once to create prefix
 if [ ! -d "$WINEPREFIX/drive_c" ]; then

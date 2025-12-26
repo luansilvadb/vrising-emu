@@ -12,9 +12,9 @@ services:
     cap_add:
       - SYS_PTRACE
     environment:
-      - SERVER_NAME=My FEX Server
+      - SERVER_NAME=Velion
       - SAVE_NAME=world1
-      - ENABLE_BEPINEX=true
+
       - GAME_PORT=9876
       - QUERY_PORT=9877
     volumes:
